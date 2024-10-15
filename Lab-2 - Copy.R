@@ -23,83 +23,69 @@
 
 	#First, we will load the necessary packages and prepare the dataset as in Lab #1.
 
-	#Loading packages and source code:
-
+#Loading packages and source code:
     		library(vegan)
     		library(pastecs)
     		library(corrplot)
     		library(ggplot2)
     		library(ggpubr)
+        setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+        source("Biostats.R")
 
-	#Loading data:
+#Loading subplot level data:
+    # dat1 <- read.csv("habitat.occu.complete.csv", row.names = 1)
+    # dat <- readRDS("habitat.occu.complete.rds")
+    # row.names(dat) <- dat[,1]
+     
+    
+#Loading site level data
+    dat2 <- readRDS("site_level_df.rds")
+    row.names(dat2) <- dat2[,1]
+    sals <- dat2[19:20]
+    env <- dat2[1:18]
+    
+    drop <- c("lat","long")
+    env <- env[,!(colnames(env) %in% drop)]
+    
+    env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
 
-		#setwd("U:\\FW599_Multivariate\\Data\\")
-		dat <- read.csv("Harney_Fishes_2007.csv", row.names = 1)
-		source("Biostats.R")
+	
+# #Subplot-level data
+#     sals <- dat[,24:29]
+#     env <- dat[,1:22]
+# 
+#     sals_red <- drop.var(sals, min.fo=5) #Removing very rare species:
+# 
+# 	#Standardizing by unit effort (segment length) to ind/m:
+#   # 		fish_dens <- fish_red
+#   # 		for(i in 1:nrow(fish_red)){	
+#   #   		fish_dens[i,] <- fish_red[i,]/env$SiteLength[i]     }
+# 
+# 	#Trimming the environmental data set:
+# 
+#   		drop <- c("date","lat","long")
+#   		env <- env[,!(colnames(env) %in% drop)]
+#   		head(env)
+#   		stat.desc(env)
+#   		
+#   		#We can also parse out continuous variables first
+#   		
+#   		env_cont <- env[,c("elev","temp","hum","soil_moist_avg","canopy_cov","veg_cov","dwd_cov","fwd_cov")]
+#   		head(env_cont)
 
-	#Remember, rows are named by sampling site and row names cannot be duplicates! Each site or "object" 
-		#should have a unique ID.
-
-	#Omitting species with zero observations:
-
-		spp_N <- colSums(dat[,16:48])
-		spp_0 <- subset(spp_N, spp_N == 0)
-		omit <- names(spp_0)
-
-		dat2 <- dat[,!(colnames(dat) %in% omit)]
-
-	#Omitting sites without fish:
-
-		dat3 <- dat2[rowSums(dat2[,16:36]) >0, ]
-
-	#Treat missing environmental data:
-
-		dat3$Herbaceous[is.na(dat3$Herbaceous)] <- 0 
-		dat3$Ann_Herb[is.na(dat3$Ann_Herb)] <- 0
-
-		dat3 <- dat3[complete.cases(dat3$SiteLength),]
-		dat_final <- dat3
-
-	#Split the datasets:
-
-		fish <- dat_final[,16:36]
-		env <- dat_final[,1:15]
-
-	#Removing very rare species:
-
-  		fish_red <- drop.var(fish, min.fo=2)
-
-	#Standardizing by unit effort (segment length) to ind/m:
-
-  		fish_dens <- fish_red
-  		for(i in 1:nrow(fish_red)){	
-    		fish_dens[i,] <- fish_red[i,]/env$SiteLength[i]     }
-
-	#Trimming the environmental data set:
-
-    		drop <- c("Latitude","Longitude","SiteLength","SiteWidth","SurfaceArea") 
-    		env <- env[,!(colnames(env) %in% drop)] 
-    		head(env) 
-    		stat.desc(env)
-
-  		env_cont <- env[,!(colnames(env) %in% c("SMU","Pop","NLCD_Cat"))]
-  		head(env_cont)
-
+#Start Exploring Data
 	#Checking for multivariate outliers:
 
-  		mv.outliers(fish_dens, method = "euclidean", sd.limit=2)
+  		saloutlier <- mv.outliers(sals, method = "euclidean", sd.limit=2)
+  		envoutlier <- mv.outliers(env_cont, method = "euclidean", sd.limit=2)
+  		intersect(rownames(saloutlier),rownames(envoutlier))
 
-	#Remember, unusually high abundances of speckled dace seem to be driving species trends at a 
-		#few sites, but we're leaving them in for now.
-
-  		mv.outliers(env_cont, method = "euclidean", sd.limit=2)
-
-	#None of the environmental outlier sites overlap with the species outlier sites.
+	#There is one site that repeats in both outlier dfs. "12213 _ 1 _ 2023"
 
 	#Remove co-varying environmental factors:
 
-  		env <- env[,!(colnames(env) %in% c("Ave_Max_D","Ann_Herb"))]
-  		env_cont <- env_cont[,!(colnames(env_cont) %in% c("Ave_Max_D","Ann_Herb"))]
+  		# env <- env[,!(colnames(env) %in% c("Ave_Max_D"))]
+  		# env_cont <- env_cont[,!(colnames(env_cont) %in% c("Ave_Max_D","Ann_Herb"))]
 
 ### Distribution of Data: Fish Abundance
 
@@ -107,54 +93,63 @@
 
 	#A barplot of the distribution:
 
-  		ac <- table(unlist(fish))
+  	ac <- table(unlist(sals))
   
+  	 dev.off()
 		barplot(ac, 
 			las = 1, 
 			xlab = "Abundance class", 
 			ylab = "Frequency", 
 			col = gray(length(ac): 0/length(ac)),
-			ylim=c(0,100)
+			ylim=c(0,150)
 			)
 
-	#The data are right skewed and also what we would call "zero-skewed." The overabundance of 
-		#20-values is driven by speckled dace and brook trout (it's an error in the dataset that 
-		#I couldn't completely rectify...we can ignore it for now).
+	#over 5000 zeros in the oss occu data
+	#The data are right skewed and also what we would call "zero-skewed."
 
 	#We can see that the skewness of the dataset indicates it will need to be transformed!
 
-### Transformation and Standardization: Fish
+### Transformation and Standardization
 
 	#Examine the distributional properties of the data using the `uv.plots()` function. 
 		#They will definitely need to be transformed.
 
-		uv.plots(fish)
+		uv.plots(sals)
 		
-	#You can do this item-by-item. For example, for redband trout:
+	# oss and enes are the only spp with enough data
+	#cloglog???????????????????????????????????????????????????????????	
+		
+	#You can do this item-by-item. 
 
-		par(mfrow = c(2,2))
-		hist(fish_dens$TROUT_RB, 
-			xlab="Fish (ind/m)", 
+		par(mfrow = c(3,2))
+		hist(sals$oss, 
+			xlab="count", 
 			ylab="Frequency", 
 			main="Raw")
-		hist(sqrt(fish_dens$TROUT_RB), 
-			xlab="Fish (ind/m)", 
+		hist(sqrt(sals$oss), 
+			xlab="count", 
 			ylab="Frequency", 
 			main="Square Root")
-		hist(log(fish_dens$TROUT_RB+1), 
-			xlab="Fish (ind/m)", 
+		hist(log(sals$oss), 
+			xlab="count", 
 			ylab="Frequency", 
-			main="Log + 1")
-		hist(log(fish_dens$TROUT_RB+0.1), 
-			xlab="Fish (ind/m)", 
+			main="Log")
+		hist(log(sals$oss+0.1), 
+			xlab="count", 
 			ylab="Frequency", 
 			main="Log + 0.1")
+		hist(log(sals$oss+1), 
+		     xlab="count", 
+		     ylab="Frequency", 
+		     main="Log + 1")
+		
+	#so many zeros, makes it hard to figure this out. do i have enough data for this?
 
 	#We also can use the data.trans() function to play with transformations:
 
-		data.trans(fish_dens, method="log", plot=F) #For heavily skewed data
-		data.trans(fish_dens, method="power", exp=0.5, plot=F) #For slightly skewed data
-		data.trans(fish_dens, method="asin", plot=F) #For proportional data (scaled 0-1, not relevant here)
+		data.trans(sals, method="log", plot=F) #For heavily skewed data
+		data.trans(sals, method="power", exp=0.5, plot=F) #For slightly skewed data
+		data.trans(sals, method="asin", plot=F) #For proportional data (scaled 0-1, not relevant here)
 
 	#We can use the `decostand()` function in the "vegan" package to standardize the data. 
 		#See `?decostand` for more information.
@@ -164,11 +159,14 @@
 		#If cv \> 100 consider standardizing. Since cv values are very low for the species data set, 
 		#let's skip standardizing for now.
 
+		stat.desc(sals)
+		#coeff var is low so i guess standardizing these data doesnt make sense anyways
+		
 		dev.off()
 		
-		boxplot(fish_dens$TROUT_RB,
-			sqrt(fish_dens$TROUT_RB),
-			log1p(fish_dens$TROUT_RB),
+		boxplot(sals$oss,
+			sqrt(sals$oss),
+			log1p(sals$oss),
 			las = 1,
 			main = "Simple Transformations",
 			names = c("raw data","sqrt","log"),
@@ -190,20 +188,20 @@
 		#function or with an item-by-item histogram.
 
 		par(mfrow = c(3,2))
-		hist(env$Max_Depth, 
-			xlab="Max Depth (m)", 
+		hist(env$elev, 
+			xlab="elev", 
 			main=NA)
-		hist(env$Gradient, 
-			xlab="Gradient (%)", 
+		hist(env$temp, 
+			xlab="temp", 
 			main=NA)
-		hist(env$Elev, 
-			xlab="Elevation (m)", 
+		hist(env$soil_moist, 
+			xlab="soil moist", 
 			main=NA)
-		hist(env$Canopy, 
-			xlab="Canopy Cover (%)", 
+		hist(env$hum, 
+			xlab="hum", 
 			main=NA)
-		hist(env$Herbaceous, 
-			xlab="Herbaceous Cover (%)", 
+		hist(env$dwd_cov, 
+			xlab="dwd", 
 			main=NA)
 
 	#It looks like some variables are normally distributed and some aren't.
@@ -241,32 +239,32 @@
 	#Let's see what each of these transformations looks like for the "Max Depth (m)" variable:
 
 		par(mfrow = c(2,2))
-		boxplot(env_cont$Max_Depth,
-			env.power$Max_Depth,
-			env.log$Max_Depth,
+		boxplot(env_cont$temp,
+			env.power$temp,
+			env.log$temp,
 			las = 1,
 			main = "Simple Transformations",
 			names = c("raw data","sqrt","log"),
 			col = "#FF5050"
 			)
-		boxplot(env.scal$Max_Depth,
-			env.relsp$Max_Depth,
-   			env.zscore$Max_Depth,
+		boxplot(env.scal$temp,
+			env.relsp$temp,
+   			env.zscore$temp,
 			las = 1,
 			main = "Standardizations by Variable",
 			names = c("max","total","Z-score"),
 			col = "#9BE1AF"
 			)
-		boxplot(env.hel$Max_Depth,
-			env.rel$Max_Depth,
-			env.norm$Max_Depth,
+		boxplot(env.hel$temp,
+			env.rel$temp,
+			env.norm$temp,
 			las = 1,
 			main = "Standardizations by Sites",
 			names = c("Hellinger","total","norm"),
 			col = "#46AFAA"
 			)
-		boxplot(env.chi$Max_Depth,
-			env.wis$Max_Depth,
+		boxplot(env.chi$temp,
+			env.wis$temp,
 			las = 1,
 			main = "Double Standardizations",
 			names = c("Chi-square","Wisconsin"),
@@ -277,3 +275,20 @@
 		#by column. Z-scoring is one of the most commonly used options, but what works best for your data 
 		#may be different depending on the circumstances.
 
+		par(mfrow = c(3,2))
+		hist(env.zscore$elev, 
+		     xlab="elev", 
+		     main=NA)
+		hist(env.zscore$temp, 
+		     xlab="temp", 
+		     main=NA)
+		hist(env.zscore$soil_moist, 
+		     xlab="soil moist", 
+		     main=NA)
+		hist(env.zscore$hum, 
+		     xlab="hum", 
+		     main=NA)
+		hist(env.zscore$dwd_cov, 
+		     xlab="dwd", 
+		     main=NA)
+		

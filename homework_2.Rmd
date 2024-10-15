@@ -1,0 +1,293 @@
+---
+title: "Homework 2"
+author: "Jasmine Williamson"
+date: "2024-10-09"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r data, include=FALSE}
+setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+
+library(vegan)
+library(pastecs)
+library(corrplot)
+library(ggplot2)
+library(ggpubr)
+
+source("biostats.R")
+
+#subplot-level
+plot <- read.csv("habitat.occu.complete.csv",row.names=1)
+allsals <- plot[,23:28]
+
+#site-level
+dat <- readRDS("site_level_df.rds")
+row.names(dat) <- dat[,1]
+sals <- dat[19:20]
+env <- dat[1:18]
+    
+drop <- c("lat","long")
+env <- env[,!(colnames(env) %in% drop)]
+    
+env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
+```
+
+### Question 1) Which variables are your response variables? Which are your predictor variables (if relevant)? Are they same-scale or mixed scale? Categorical, continuous, or ordinal?
+
+Response Variable: Salamander total count. My current matrix defines the plot ID as the objects. I have 127 sites with 7 plots each, and 889 rows in the matrix. I am working on a site-level matrix to use for this class, which will define sites as the objects with 127 rows, and will include salamander density per 9^2m plot as response variable.  
+
+Predictor Variables: temperature, humidity, soil moisture, elevation, downed wood cover, canopy cover, veg cover, fine woody debris cover. These variables are mixed scale. The first four are continuous, and the last four are percent cover categories numbered 1-4.
+ 
+
+```{r define data, echo=FALSE}
+str(sals)
+str(env)
+```
+
+
+### Question 2) Do you have missing values in your data? If so, how will you account for them? Will you need to use different methods for different variables?
+
+I have missing values for observer, but that is a data entry error that I need to fix. Otherwise I do not have any missing data.
+
+```{r missing data}
+na_count <- colSums(is.na(dat))
+print(na_count)
+```
+
+
+### Question 3) Is there a need for data transformation? If so, what transformations are you considering and why? Is your decision based on statistical or ecological criteria, or both?
+
+Looking at the salamander data, four of my six species are present in very low numbers,so  I am going to remove them from the dataset. OSS and ENES were the target species, so it is unsurprising that the other species were rarely found based on the types of habitat searched.  
+
+The salamander data is zero-skewed, so I should transform it. If I drop the species that include non-zero values in less that 5% of the surveys, the distribution looks a little better, but we still are very right-skewed and zero-skewed. The best option for highly right-skewed and zero-skewed data is to use a log +1 (or plus some other relevant value).
+
+
+```{r abundance, echo=FALSE}
+
+spe_pres <- apply(allsals > 0, 2, sum) #Number of occurrences
+		sort(spe_pres)
+
+ac <- table(unlist(sals)) #Number of cases for each abundance class
+
+barplot(ac, 
+			las = 1, 
+			xlab = "Abundance class, reduced", 
+			ylab = "Frequency", 
+			col = gray(length(ac): 0/length(ac)),
+			ylim=c(0,150)
+      )
+
+```
+
+
+### Question 4) Is there a need for data standardization? What standardizations will you use? Is your decision based on statistical or ecological criteria, or both?
+
+Salamander data: I surveyed identical numbers of plots for the same amount of time for each site, so my salamander data does not need to be standardized by survey effort. 
+
+Env data: Most of my data is on similar scales, for example percent humidity and temperature in F are similar in scale. Elevation consists of larger values than the rest, so that one might benefit from being transformed. Most of this data is normally distributed. humidity is a little weird, but I'll probably drop it later anyways.  
+
+The coefficient of variation value (cv) is \< 50, so apparently standardization won't make a difference? Am i interpreting that correctly? Since cv values are very low for both the species and environmental data sets, I wont standardize any of it for now.  
+		
+
+```{r standardize, echo=FALSE}
+
+stat.desc(sals)
+stat.desc(env)
+
+par(mfrow = c(2,3))
+		hist(env$elev, 
+			xlab="elev", 
+			main=NA)
+		hist(env$temp, 
+			xlab="temp", 
+			main=NA)
+		hist(env$soil_moist, 
+			xlab="soil moist", 
+			main=NA)
+		hist(env$hum, 
+			xlab="hum", 
+			main=NA)
+		hist(env$dwd_cov, 
+			xlab="dwd", 
+			main=NA)
+
+env.zscore <- decostand(env_cont, "standardize") #Z-scores the data in each column
+par(mfrow = c(3,2))
+		hist(env.zscore$elev, 
+		     xlab="elev", 
+		     main=NA)
+		hist(env.zscore$temp, 
+		     xlab="temp", 
+		     main=NA)
+		hist(env.zscore$soil_moist, 
+		     xlab="soil moist", 
+		     main=NA)
+		hist(env.zscore$hum, 
+		     xlab="hum", 
+		     main=NA)
+		hist(env.zscore$dwd_cov, 
+		     xlab="dwd", 
+		     main=NA)
+```
+
+### Question 5) Considering the histograms of the data, how effective do you think your transformation/standardization is?
+
+I think the log+1 histogram looks the best and is the transformation I should move forward with. The square root also does not look bad.  
+
+```{r transformation, echo=FALSE}
+
+par(mfrow = c(2,3))
+		hist(sals$oss, 
+			xlab="count", 
+			ylab="Frequency", 
+			main="Raw")
+		hist(sqrt(sals$oss), 
+			xlab="count", 
+			ylab="Frequency", 
+			main="Square Root")
+		hist(log(sals$oss), 
+			xlab="count", 
+			ylab="Frequency", 
+			main="Log")
+		hist(log(sals$oss+1), 
+			xlab="count", 
+			ylab="Frequency", 
+			main="Log + 1")
+		hist(log(sals$oss+0.1), 
+			xlab="count", 
+			ylab="Frequency", 
+			main="Log + 0.1")
+		boxplot(sals$oss,
+			sqrt(sals$oss),
+			log1p(sals$oss),
+			las = 1,
+			main = "Simple Transformations",
+			names = c("raw data","sqrt","log"),
+			col = "#FF5050"
+			)
+```
+
+I ran some options with elevation since the scale is the farthest from the rest of my variables. I think z-scoring it is a good option, but might not be necessary since the cv value is so low? Unsure about this.  
+
+```{r env transformation, echo=FALSE, warning=FALSE}
+
+env.log <- data.trans(env_cont, method="log", plot=F)
+env.power <- data.trans(env_cont, method="power", exp=0.5, plot=F)
+env.asin <- data.trans(env_cont, method="asin", plot=F)
+
+env.scal <- decostand(env_cont, "max") #Standardization by max value of each column
+
+env.relsp <- decostand(env_cont, "total", MARGIN=2) #Standardization by column totals
+
+env.zscore <- decostand(env_cont, "standardize") #Z-scores the data in each column
+
+env.rel <- decostand(env_cont, "total") #Standardization by max value of each site/row
+
+env.norm <- decostand(env_cont, "normalize") #Give a length of 1 to each row vector (chord 
+			#transformation), very useful for Euclidean distances (PCA, RDA) and can be used on 
+			#log-transformed data
+
+env.hel <- decostand(env_cont, "hellinger") #Square root of relative values per site, obtained 
+			#by applying chord transformation to square root transformed data
+
+env.chi <- decostand(env_cont, "chi.square") #Double standardization by columns and rows
+
+env.wis <- wisconsin(env_cont) #Wisconsin standardization, values are ranged by column maxima 
+			#and then by site totals
+
+	#Let's see what each of these transformations looks like for the "Max Depth (m)" variable:
+
+		par(mfrow = c(2,2))
+		boxplot(env_cont$elev,
+			env.power$elev,
+			env.log$elev,
+			las = 1,
+			main = "Simple Transformations",
+			names = c("raw data","sqrt","log"),
+			col = "#FF5050"
+			)
+		boxplot(env.scal$elev,
+			env.relsp$elev,
+   			env.zscore$elev,
+			las = 1,
+			main = "Standardizations by Variable",
+			names = c("max","total","Z-score"),
+			col = "#9BE1AF"
+			)
+		boxplot(env.hel$elev,
+			env.rel$elev,
+			env.norm$elev,
+			las = 1,
+			main = "Standardizations by Sites",
+			names = c("Hellinger","total","norm"),
+			col = "#46AFAA"
+			)
+		boxplot(env.chi$elev,
+			env.wis$elev,
+			las = 1,
+			main = "Double Standardizations",
+			names = c("Chi-square","Wisconsin"),
+			col = "#FAD223"
+			)
+```
+
+### Question 6) If you are working with environmental predictors in your data, do any of them covary? Which ones will you remove?
+
+Out of the continuous variables, it looks like temperature and humidity covary. I may remove humidity because I think temperature is a more reliable predictor of salamander behavior.  
+
+```{r correllation, echo=FALSE}
+
+P.corr <- cor(env_cont, method = "pearson", use = "complete.obs")
+    
+corrplot(P.corr, 
+			type = "upper", 
+			order = "hclust", 
+			tl.col = "black", 
+			tl.srt = 45)
+```
+
+The categorical comparisons show a few potential trends. For the most part, soil moisture, temp, and humidity are all fluctuating around a similar level across treatments. Downed wood looks the most interesting, with more in the salvage logged and control plots than in the harvested and burned plots, which makes sense given my time on the ground. It's clear that canopy cover is highly related to treatment type. Which is not groundbreaking, seeing as my treatment types include logging.  
+
+Treatments:  
+- BS = burned, salvage logged  
+- BU = burned, unharvested  
+- HB = harvested, burned  
+- HU = harvested, unburned  
+- UU = unharvested, unburned  
+
+```{r, echo=FALSE}
+p1 <- ggplot(env) + geom_boxplot(aes(x = trt, y = soil_moist), fill = "#FF5050", alpha=0.8)
+		p2 <- ggplot(env) + geom_boxplot(aes(x = trt, y = temp), fill = "#FF5050", alpha=0.8)
+		p3 <- ggplot(env) + geom_boxplot(aes(x = trt, y = hum), fill = "#FF5050", alpha=0.8)
+		p4 <- ggplot(env) + geom_boxplot(aes(x = trt, y = canopy_cov), fill = "#FF5050", alpha=0.8)
+		p5 <- ggplot(env) + geom_boxplot(aes(x = trt, y = dwd_cov), fill = "#FF5050", alpha=0.8)
+
+ggarrange(p1, p2, p3, p4, p5, ncol=3, nrow=2)
+```
+
+### Question 7) Do you have outliers in your data? How will you handle them? Do you think there are ecological reasons for keeping any outliers in your analysis?
+
+I have a few outliers, and some of them appear to be sites that are high in elevation. The outliers for the environmental and salamander only overlap at one site. Does that mean I dont need to be worried about removing them?  
+
+```{r outliers, echo=FALSE}
+saloutlier <- mv.outliers(sals, method = "euclidean", sd.limit=2)
+
+envoutlier <- mv.outliers(env_cont, method = "euclidean", sd.limit=2)
+
+
+```
+```{r outlier print}
+saloutlier
+envoutlier
+intersect(rownames(saloutlier),rownames(envoutlier))
+
+```
+
+
+
+
+

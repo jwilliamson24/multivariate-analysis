@@ -16,41 +16,31 @@
 		#Check for outliers
 		#Check for multicollinearity
 
-### Load the Necessary Packages
-
-	#The `vegan` package is the quintessential community ecology package. It provides functions for ordination, 
-		#diversity analysis, and other multivariate analyses commonly used in ecological studies.
-
-	#The `pastecs` package includes tools for descriptive statistics, handling and analyzing time series data, 
-		#and other useful statistical methods.
-
-	#The `corrplot`, `ggplot2`, and `ggpubr` packages are used to eloquently visualize data.
-
+#Loading packages and source code:
     library(vegan)
-		library(pastecs)
-		library(corrplot)
-		library(ggplot2)
-		library(ggpubr)
-    library(dplyr)
+    library(pastecs)
+    library(corrplot)
+    library(ggplot2)
+    library(ggpubr)
+    setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+    source("Biostats.R")
 
-### Load the Data Set(s)
+#Loading subplot level data:
+    # dat1 <- read.csv("habitat.occu.complete.csv", row.names = 1)
+    # dat <- readRDS("habitat.occu.complete.rds")
+    # row.names(dat) <- dat[,1]
 
-	#If you would like, you can set a working directory prior to loading your data. 
 
-	#The first column in your csv should be the row names. If you have response and predictor variables, you 
-		#can load them as two separate matrices; however, I find that data sets are easiest to clean when you 
-		#load everything at once, as below.
-
-		#setwd("U:\\FW599_Multivariate\\Data\\")
-		#dat <- read.csv("Harney_Fishes_2007.csv", row.names = 1)
-    dat <- read.csv("sals.complete.csv")
-
-	#In this case, rows are named by sampling site. As mentioned in the "notes" box above, row names cannot 
-		#be duplicates! If this is an issue for you, you will need to assign a unique "Site ID" for each row.
-
-	#This source code from Julian Olden has some useful functions for cleaning and processing multivariate data:
-
-		source("biostats.R")
+#Loading site level data
+    dat <- readRDS("site_level_df.rds")
+    row.names(dat) <- dat[,1]
+    sals <- dat[19:20]
+    env <- dat[1:18]
+    
+    drop <- c("lat","long")
+    env <- env[,!(colnames(env) %in% drop)]
+    
+    env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
 
 ### Check the Data Structure
 
@@ -66,85 +56,142 @@
 		str(dat) #Examine the structure of the data set including information about the types of columns 
 				#and a preview of the data
 
-		stat.desc(dat) #From the 'pastecs' package, compute and display descriptive statistics for the data 
+		#stat.desc(dat) #From the 'pastecs' package, compute and display descriptive statistics for the data 
 					#frame, including statistical summaries
 
-# did the below steps already in oss-occu repo
-### Data Cleaning and Preparation
-### Omit Missing Data
 ### Splitting the Data
 
-		sals <- dat
-		site <- read.csv("site.complete.csv")
-    subplot <- read.csv("subplot.complete.csv")
+	#We can split the data into separate "fish" and "environmental" matrices. i.e., our "response" and "predictor" 
+		#matrices.
+# 
+# 		sals <- dat[,24:29]
+# 		env <- dat[,1:22]
 
-### Treatments for Missing Data
-# no NA's, dealt with in oss-occu repo
-    
-    na.count <- sals %>%
-      summarise(across(everything(), ~ sum(is.na(.))))
-    print(na.count)
-    
-    na.count <- site %>%
-      summarise(across(everything(), ~ sum(is.na(.))))
-    print(na.count)
-    
-    na.count <- subplot %>%
-      summarise(across(everything(), ~ sum(is.na(.))))
-    print(na.count)
+	#Make sure to complete any of the aforementioned data processing/cleaning steps BEFORE you split the matrices! 
+		#The exception to this is if you need to replace missing values differently for your response and predictor 
+		#variables.
 
-# not relevant or already did it
 ### Exploratory Data Analysis: Fish Abundance
-### When to drop "insufficient" or overabundant species
-### Scaling Data by Per-Unit Effort
 
-### Checking for Outliers
-# i only have two main species so i dont think this is something that will apply to me
- 
-      sals$spp <- as.factor(sals$spp)
-      summary(sals$spp)
-      # could remove other species here, counts too low to matter
-      # AMGR  ANFE  ENES  OSS  PLDU  TAGR 
-      #   5    1    138   257    5    3 
+	#Let's first examine how fish abundances are distributed.
+
+		range(sals) #Min/max values
+
+		apply(sals, 2, range) #Min/max values for each species
+
+		ac <- table(unlist(sals2)) #Number of cases for each abundance class
+
+	#A barplot of the distribution:
+
+		barplot(ac, 
+			las = 1, 
+			xlab = "Abundance class", 
+			ylab = "Frequency", 
+			col = gray(length(ac): 0/length(ac)),
+			ylim=c(0,100)
+			)
+
+	#The data are right skewed and also what we would call "zero-skewed." 
+		#The skewness of the data indicates that they will likely need to be transformed!
+
+	#At how many sites does each species occur?
+
+		spe_pres <- apply(sals > 0, 2, sum) #Number of occurrences
+		sort(spe_pres)
+		# ANFE TAGR PLDU AMGR ENES  OSS 
+		#   1    3    4    5   107  163 
+		
+		
+		spe_relf <- 100*spe_pres/nrow(sals) #Relative frequency of occurrences
+		round(sort(spe_relf), 1)
+		# ANFE  TAGR  PLDU  AMGR  ENES  OSS 
+		#  0.1   0.3  0.4   0.6   12.0  18.3 
+		
+		
+		par(mfrow = c(1,2))
+		hist(spe_pres,
+			main = "Species Occurrences",
+			right = FALSE,
+			las = 1,
+			xlab = "Number of occurrences",
+			ylab = "Number of species",
+			breaks = seq(0, max(spe_pres)+5, by=5),
+			col = "#FF5050"
+			)
+		hist(spe_relf,
+			main = "Species Relative Frequencies",
+			right = FALSE,
+			las = 1,
+			xlab = "Frequency of occurrences (%)",
+			ylab = "Number of species",
+			breaks = seq(0, 100, by=5),
+			col = "#FF5050"
+			)
+
+	#The `foa.plots()` function will produce a series of plots with this information as well
+
+### When to drop "insufficient" or overabundant species
+
+	#Depending on how your data were collected and your plans for analysis, you might consider dropping 
+		#"rare" descriptors (species). This is especially important for analyses that ascribe a greater 
+		#importance to rare species (e.g., Canonical Correspondence Analysis, which uses a Chi-square distance). 
+		#A good rule of thumb for larger data sets is to omit species that have non-zero values in less than 5% 
+		#of sites.
+
+		testsals <- drop.var(sals, min.po=5)
+  		ncol(sals)
+  		ncol(testsals)
+
+	#This actually omits quite a few species from our data set!
+
+	#We can also drop species based on the number of non-zero values.
+
+		testsals <- drop.var(sals, min.fo=10)
+  		ncol(sals)
+  		ncol(testsals)
+
+	#You might also consider omitting over-abundant (generalist) species. If you know they occur pretty much 
+		#everywhere and won't contribute anything to an analysis of community-level differences (I would 
+		#caution folks against this, as it inches deeper into the realm of subjectivity).
+
+		testsals <- drop.var(sals, max.po=90)
+  		ncol(sals)
+  		ncol(testsals)
+
+	#In our case, we don't have any "generalist" species to remove.
+
+	#Let's work with a very conservative cutoff for now.
+
+		sals_red <- drop.var(sals, min.fo=2)
 
 
 ### Exploratory Data Analysis: Environmental Variables
 
-      #lets delete the columns we arent interested in as predictors
-      summary(site)
-      rownames(site) <- site$site_id
-      drop <- c("site_rep","date","elev","stand","year","landowner","site_id")
-      site <- site[,!(colnames(site) %in% drop)]
-      head(site)
-      stat.desc(site)
-      site_cont <- site[,c("temp","hum")]
-      
-      summary(subplot)
-	    drop <- c("site_rep","date","lat","long","time","stand","year")
-      subplot <- subplot[,!(colnames(subplot) %in% drop)]
-      head(subplot)
-      stat.desc(subplot)
+	#Use the `summary()` function to produce a Summary of the environmental data.
+
+	#There are many variables, but we're only interested in some of these as predictors
+
+		drop <- c("date","lat","long")
+		env <- env[,!(colnames(env) %in% drop)]
+  			head(env)
+		stat.desc(env)
+
+	#We can also parse out continuous variables first
+
+		env_cont <- env[,c("elev","temp","hum","soil_moist_avg","jul_date")]
+		head(env_cont)
 
 ### Checking for Outliers
 
 	#First, let's check for outliers in our environmental data. We can use the same multivariate 
 		#procedure as for the species data above.
 
-		mv.outliers(site_cont, method = "euclidean", sd.limit=2)
-		# avedist    sd
-		# 12441 _ 1 _ 2023   37.297 2.039
-		# 21159 _ 1 _ 2023   39.262 2.335
-		# 12560 _ 1 _ 2024   39.493 2.370
-		# 12776 _ 1 _ 2024   50.635 4.045
-		# 33628 _ 1 _ 2024   50.272 3.990
-		# 33651 _ 1 _ 2024   46.584 3.436
-		# 408180 _ 1 _ 2024  38.583 2.233
-		
-	#not sure what to do with these
+		mv.outliers(env_cont, method = "euclidean", sd.limit=2)
 
-### Checking for Covariance in Predictors  ########################################################################
-		
-		# to do this i want to make a dataframe that has all site and subplot data in the same matrix
+	#If any of these sites showed up as outliers for both the species and environmental data, I would 
+		#consider omitting them, especially if the SD was \> 4. For now, we can keep them in and assess later.
+
+### Checking for Covariance in Predictors
 
 	#Next we'll want to determine if any of our predictors covary. This is important to know, even if the analysis 
 		#we're using accounts for correlation among predictors.
@@ -155,26 +202,25 @@
 
 		P.corr <- cor(env_cont, method = "pearson", use = "complete.obs")
 	  		round(P.corr, 2)
-
+    
+	  dev.off()
 		corrplot(P.corr, 
 			type = "upper", 
 			order = "hclust", 
 			tl.col = "black", 
 			tl.srt = 45)
 
-	#This indicates that Maximum Depth and Average Maximum Depth covary substantially. Percent Herbaceous and 
-		#Annual Herbaceous plants also covary. We can remove co-varying factors if we want.
+	#This indicates thattemp and hum covary substantially. julian date and
+		# soil moisture also covary. We can remove co-varying factors if we want.
 
-		env <- env[,!(colnames(env) %in% c("Ave_Max_D","Ann_Herb"))]
-		env_cont <- env_cont[,!(colnames(env_cont) %in% c("Ave_Max_D","Ann_Herb"))]
 
 	#What about relationships between categorical and continuous variables? Let's look at among-basin differences.
 
-		p1 <- ggplot(env) + geom_boxplot(aes(x = SMU, y = Max_Depth), fill = "#FF5050", alpha=0.8)
-		p2 <- ggplot(env) + geom_boxplot(aes(x = SMU, y = Gradient), fill = "#FF5050", alpha=0.8)
-		p3 <- ggplot(env) + geom_boxplot(aes(x = SMU, y = Elev), fill = "#FF5050", alpha=0.8)
-		p4 <- ggplot(env) + geom_boxplot(aes(x = SMU, y = Canopy), fill = "#FF5050", alpha=0.8)
-		p5 <- ggplot(env) + geom_boxplot(aes(x = SMU, y = Herbaceous), fill = "#FF5050", alpha=0.8)
+		p1 <- ggplot(env) + geom_boxplot(aes(x = trt, y = soil_moist), fill = "#FF5050", alpha=0.8)
+		p2 <- ggplot(env) + geom_boxplot(aes(x = trt, y = temp), fill = "#FF5050", alpha=0.8)
+		p3 <- ggplot(env) + geom_boxplot(aes(x = trt, y = hum), fill = "#FF5050", alpha=0.8)
+		p4 <- ggplot(env) + geom_boxplot(aes(x = trt, y = canopy_cov), fill = "#FF5050", alpha=0.8)
+		p5 <- ggplot(env ) + geom_boxplot(aes(x = trt, y = dwd_cov), fill = "#FF5050", alpha=0.8)
 
   	ggarrange(p1, p2, p3, p4, p5, ncol=2, nrow=3)
 
