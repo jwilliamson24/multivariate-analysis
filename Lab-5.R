@@ -35,9 +35,12 @@
 		library(cluster)
 		library(indicspecies)
 
-		source("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\Biostats.R")
+		#source("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\Biostats.R")
+    setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+    source("Biostats.R")
+    source("coldiss.R")
 
-  		dat <- read.csv("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\Harney_Fishes_2007.csv", row.names = 1)
+  		dat <- read.csv("Harney_Fishes_2007.csv", row.names = 1)
 	
   		sub_dat <- subset(dat, SMU=="Malheur")
 
@@ -138,7 +141,7 @@
 	#The desired number of clusters must be set a-priori by the user. Based on our previous analyses, we can 
 		#guess that somewhere between 4-6 clusters is optimal for this dataset. If we're still unsure, we can 
 		#examine an elbow plot and silhouette width plot te get a better sense for the optimal number of clusters.
-
+      dev.off()
   		nhclus.scree(fish.bray, max.k = 20)
 
 	#The Calinski-Harabasz (CH) Index, or the ratio of between-cluster separation to within-cluster dispersion 
@@ -181,7 +184,8 @@
 		par(mfrow=c(2,3))
 		box.plots(env_dat_new, by="env.class")
 
-	#In general, the sites split well by habitat type (shrub-scrub vs. forest), elevation, and gradient. 
+	
+		#In general, the sites split well by habitat type (shrub-scrub vs. forest), elevation, and gradient. 
 		#If you remember, K-Means output is random depending on starting centroids. If we want consistent 
 		#groupings, we can use agglomerative clustering to select sites.
 

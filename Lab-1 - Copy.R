@@ -32,12 +32,12 @@
 
 
 #Loading site level data
-    dat <- readRDS("site_level_df.rds")
+    dat <- readRDS("site_level_matrix.rds")
     row.names(dat) <- dat[,1]
     sals <- dat[19:20]
-    env <- dat[1:18]
+    env <- dat[,-c(19:20)]
     
-    drop <- c("lat","long")
+    drop <- c("lat","long","landowner","stand","tree_farm","year","weather")
     env <- env[,!(colnames(env) %in% drop)]
     
     env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
