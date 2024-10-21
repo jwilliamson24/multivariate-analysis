@@ -17,6 +17,8 @@
 		#Check for multicollinearity
 
 #Loading packages and source code:
+    
+    #rm(list=ls())
     library(vegan)
     library(pastecs)
     library(corrplot)
@@ -32,15 +34,18 @@
 
 
 #Loading site level data
-    dat <- readRDS("site_level_matrix.rds")
+    dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
     row.names(dat) <- dat[,1]
-    sals <- dat[19:20]
-    env <- dat[,-c(19:20)]
+    sals <- dat[,c("oss","enes")]
     
-    drop <- c("lat","long","landowner","stand","tree_farm","year","weather")
-    env <- env[,!(colnames(env) %in% drop)]
+    drop <- c("lat","long","landowner","stand","tree_farm","year","weather","size_cl",
+              "length_cl","site_id","oss","enes")
+    env <- dat[,!(colnames(dat) %in% drop)]
     
-    env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
+    #env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov",
+    #                   "dwd_cov","fwd_cov","jul_date","dwd_dens","decay_cl","char_cl")]
+    env_cont <- env[, !colnames(env) %in% "trt"]
+    
 
 ### Check the Data Structure
 
@@ -79,7 +84,7 @@
 
 		apply(sals, 2, range) #Min/max values for each species
 
-		ac <- table(unlist(sals2)) #Number of cases for each abundance class
+		ac <- table(unlist(sals)) #Number of cases for each abundance class
 
 	#A barplot of the distribution:
 
@@ -186,7 +191,7 @@
 	#First, let's check for outliers in our environmental data. We can use the same multivariate 
 		#procedure as for the species data above.
 
-		mv.outliers(env_cont, method = "euclidean", sd.limit=2)
+		mv.outliers(env_cont, method = "euclidean", sd.limit=3)
 
 	#If any of these sites showed up as outliers for both the species and environmental data, I would 
 		#consider omitting them, especially if the SD was \> 4. For now, we can keep them in and assess later.
@@ -219,8 +224,13 @@
 		p1 <- ggplot(env) + geom_boxplot(aes(x = trt, y = soil_moist), fill = "#FF5050", alpha=0.8)
 		p2 <- ggplot(env) + geom_boxplot(aes(x = trt, y = temp), fill = "#FF5050", alpha=0.8)
 		p3 <- ggplot(env) + geom_boxplot(aes(x = trt, y = hum), fill = "#FF5050", alpha=0.8)
-		p4 <- ggplot(env) + geom_boxplot(aes(x = trt, y = canopy_cov), fill = "#FF5050", alpha=0.8)
-		p5 <- ggplot(env ) + geom_boxplot(aes(x = trt, y = dwd_cov), fill = "#FF5050", alpha=0.8)
+		#p4 <- ggplot(env) + geom_boxplot(aes(x = trt, y = dwd_dens), fill = "#FF5050", alpha=0.8)
+		#p5 <- ggplot(env) + geom_boxplot(aes(x = trt, y = log_dens), fill = "#FF5050", alpha=0.8)
+		#p6 <- ggplot(env) + geom_boxplot(aes(x = trt, y = stump_dens), fill = "#FF5050", alpha=0.8)
+		p7 <- ggplot(env) + geom_boxplot(aes(x = trt, y = decay_cl), fill = "#FF5050", alpha=0.8)
+		p8 <- ggplot(env) + geom_boxplot(aes(x = trt, y = char_cl), fill = "#FF5050", alpha=0.8)
+		p9 <- ggplot(env) + geom_boxplot(aes(x = trt, y = dwd_cov), fill = "#FF5050", alpha=0.8)
+		
 
-  	ggarrange(p1, p2, p3, p4, p5, ncol=2, nrow=3)
+  	ggarrange(p1, p2, p3,p7, p8, p9, ncol=2, nrow=3)
 

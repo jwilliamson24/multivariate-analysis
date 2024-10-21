@@ -43,23 +43,25 @@
 		# source("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\coldiss.R")
 
 	#2) Loading site level data
-    dat2 <- readRDS("site_level_df.rds")
+    dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
     row.names(dat2) <- dat2[,1]
-    sals <- dat2[19:20]
-    env <- dat2[1:18]
     
-    drop <- c("lat","long")
-    env <- env[,!(colnames(env) %in% drop)]
+    sals <- dat2[,c("oss","enes")]
     
-    env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
+    drop <- c("lat","long","landowner","stand","tree_farm","year","weather","size_cl",
+              "length_cl","site_id","oss","enes")
+    env <- dat2[,!(colnames(dat2) %in% drop)]
     
-
+    #env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov",
+    #                   "dwd_cov","fwd_cov","jul_date","dwd_dens","decay_cl","char_cl")]
+    env_cont <- env[, !colnames(env) %in% "trt"]
+    
 
 	#10) Transforming and standardizing the data as needed
     
     
     log_sals <- log(sals + 1)
-    env.zscore <- decostand(env_cont, "standardize") #Z-scores the data in each column
+    env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
       
 
 ## Q-Mode: (Dis)similarity and Distance Matrices
@@ -102,9 +104,9 @@
 		#of double 1s. As such, it trends toward greater similarity values. Note that it is equivalent to the 
 		#percentage difference or Bray Curtis method for quantitative (or abundance) data.
 
-		fish.sor <- vegdist(fish_occ, method="bray") 
+		sal.sor <- vegdist(sal_occ, method="bray") 
 
-		plot(fish.jac, fish.sor, 
+		plot(sal.jac, sal.sor, 
 			xlab="Jaccard's coefficient", 
 			ylab="Sorensen's coefficient",
 			pch=21,
@@ -114,7 +116,7 @@
 	#The `coldiss` function is helpful for visualizing ordered similarities among sites (or objects), and is a 
 		#precursor for identifying clusters.
 
-  		coldiss(fish.jac, nc=5, byrank=FALSE, diag=TRUE)
+  		coldiss(sal.jac, nc=5, byrank=FALSE, diag=TRUE)
 
 	#Another helpful coefficient for presence/absence data is **Ochiai's similarity**, which is an asymmetric 
 		#coefficient that is closely related to the chord, Hellinger, and log-chord transformations.
@@ -129,21 +131,21 @@
 		#although it can be computed from raw data. This metric gives the same importance to absolute differences 
 		#in abundance, irrespective of their order of magnitude. That is, it weighs abundant and rare species similarly.
 
-		fish.bray <- vegdist(log_fish_dens, method="bray")
+		sal.bray <- vegdist(log_sals, method="bray")
 
 	#The chord distance is a Euclidean distance computed on site (object) vectors that have been normalized to 
 		#length 1 (also referred to as the chord transformation). The log-chord distance is simply the chord 
 		#distance applied to log-transformed abundance data.
 
-		fish.cho <- decostand(fish_dens, "normalize") 
-		fish.cho <- dist(fish.cho)
+		sal.cho <- decostand(sals, "normalize") 
+		sal.cho <- dist(sal.cho)
 
 	#Similarly, the Hellinger distance is a Euclidean distance between site (object) vectors where abundance 
 		#values are first divided by the site total abundance and the result is square-root transformed 
 		#(also referred to as the Hellinger transformation).
 
-		fish.hel <- decostand(fish_dens, "hellinger") 
-		fish.hel <- dist(fish.hel)
+		sal.hel <- decostand(sals, "hellinger") 
+		sal.hel <- dist(sal.hel)
 
 	#Note that both the chord and Hellinger transformations can be used prior to ordination using a Euclidean 
 		#distance matrix (as in PCA or RDA) in a procedure referred to as transformation-based PCA, RDA, or 
@@ -152,7 +154,7 @@
 
 	#The chord and Hellinger distances are closely related to one-another.
 
-		plot(fish.cho, fish.hel, 
+		plot(sal.cho, sal.hel, 
 	  		xlab="Chord distance", 
 	  		ylab="Hellinger distance",
 	  		pch=21,
@@ -162,21 +164,21 @@
 	#Bray-Curtis tends to demonstrate greater dissimilarity for some sites than the Hellinger distance. 
 		#Why do you think this is?
 
-		plot(fish.bray, fish.hel, 
+		plot(sal.bray, sal.hel, 
 	  		xlab="Bray-Curtis distance", 
 	  		ylab="Hellinger distance",
 	  		pch=21,
 	  		col="black")
 	  		abline(0, 1, col="darkgray")
 	  
-  		coldiss(fish.bray, nc=5, byrank=FALSE, diag=TRUE)
-  		coldiss(fish.hel, nc=5, byrank=FALSE, diag=TRUE)
+  		coldiss(sal.bray, nc=5, byrank=FALSE, diag=TRUE)
+  		coldiss(sal.hel, nc=5, byrank=FALSE, diag=TRUE)
 
 	#The chi-square distance is weighed by the relative frequency of occurrence. This means that it gives 
 		#higher weights to rare than to common species. It is only recommended when rare species are considered 
 		#to be good indicators of special ecological conditions.
 
-		fish.chi <- vegdist(log_fish_abu, method="chi")
+	  sal.chi <- vegdist(log_sals, method="chi")
 
 ### Similarity Coefficients for Mixed Data Types and Environmental Data
 
@@ -207,40 +209,42 @@
 	#For binary species data, the Jaccard and Sorensen coefficients can also be used in R-mode to discern 
 		#species associations.
 
-  		fish_pa.t <- t(fish_occ)
+  		sal_pa.t <- t(sal_occ)
 	
-  		fish.t.jac <- vegdist(fish_pa.t, "jaccard")
+  		sal.t.jac <- vegdist(sal_pa.t, "jaccard")
 
-  		coldiss(fish.t.jac, diag=TRUE)
+  		coldiss(sal.t.jac, diag=TRUE)
 
 	#Parametric and non-parametric correlation coefficients are used to compare species distributions and 
 		#associations in space and time. This includes the parametric Pearson's correlation coefficient and 
 		#the non-parametric (i.e., rank-based) Spearman's r or Kendall's tau. The chi-square distance 
 		#can also be used in R-mode for species abundance data.
 
-  		fish_dens.t <- t(log_fish_dens)
+  		sals.t <- t(log_sals)
 
-  		fish.pears <- cor(fish_dens)
+  		sal.pears <- cor(sals)
   
-  		fish.ken <- cor(fish_dens, method="kendall")
+  		sal.ken <- cor(sals, method="kendall")
   
-  		fish.t.chi <- decostand(fish_dens.t, "chi.square")
-  		fish.t.chi2 <- dist(fish.t.chi) #Chi-square
+  		sal.t.chi <- decostand(sals.t, "chi.square")
+  		sal.t.chi2 <- dist(sal.t.chi) #Chi-square
 
-  		coldiss(fish.pears, diag=TRUE)
-  		coldiss(fish.ken, diag=TRUE)
-  		coldiss(fish.t.chi2, diag=TRUE)
+  		coldiss(sal.pears, diag=TRUE)
+  		coldiss(sal.ken, diag=TRUE)
+  		coldiss(sal.t.chi2, diag=TRUE)
 
 ### Environmental Data
 
 	#Quantitative variables such as environmental data must be dimensionally homogeneous (i.e., standardized) 
 		#prior to R-mode analysis. For variables with largely linear relationships, Pearson's correlation coefficient 
 		#is sufficient.
-
-		env.pearson <- cor(env_std)
+  	drop <- c("jul_date","canopy_cov","veg_cov","fwd_cov","stumps","logs","decay_cl","char_cl" )
+  	env_std_subset <- env_std[,!(colnames(env_std) %in% drop)]
+  		
+		env.pearson <- cor(env_std_subset)
 		env.o <- order.single(env.pearson)
 
-		pairs(env_std[, env.o],
+		pairs(env_std_subset[, env.o],
 			lower.panel = panel.smooth,
 			upper.panel = panel.cor,
 			diag.panel = panel.hist,
@@ -252,10 +256,10 @@
 	#For quantitative variables with non-linear relationships, the non-parametric rank correlation coefficients 
 		#such as Spearman's r or Kendall's tau may perform better.
 
-		env.ken <- cor(env_std, method="kendall")
+		env.ken <- cor(env_std_subset, method="kendall")
 		env.o <- order.single(env.ken)
 
-		pairs(env_std[, env.o],
+		pairs(env_std_subset[, env.o],
 			lower.panel = panel.smooth,
 			upper.panel = panel.cor, 
 			method = "kendall",
