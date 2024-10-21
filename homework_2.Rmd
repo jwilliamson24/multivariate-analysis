@@ -21,19 +21,19 @@ library(ggpubr)
 source("biostats.R")
 
 #subplot-level
-plot <- read.csv("habitat.occu.complete.csv",row.names=1)
-allsals <- plot[,23:28]
+plot <- read.csv("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/habitat.occu.complete.csv",row.names=1)
+allsals <- plot[,22:27]
 
 #site-level
-dat <- readRDS("site_level_df.rds")
+dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
 row.names(dat) <- dat[,1]
-sals <- dat[19:20]
-env <- dat[1:18]
+sals <- dat[26:27]
+env <- dat[1:25]
     
-drop <- c("lat","long")
+drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
 env <- env[,!(colnames(env) %in% drop)]
     
-env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov","dwd_cov","fwd_cov","jul_date")]
+env_cont <- env[,-1]
 ```
 
 ### Question 1) Which variables are your response variables? Which are your predictor variables (if relevant)? Are they same-scale or mixed scale? Categorical, continuous, or ordinal?
@@ -88,9 +88,7 @@ barplot(ac,
 
 Salamander data: I surveyed identical numbers of plots for the same amount of time for each site, so my salamander data does not need to be standardized by survey effort. 
 
-Env data: Most of my data is on similar scales, for example percent humidity and temperature in F are similar in scale. Elevation consists of larger values than the rest, so that one might benefit from being transformed. Most of this data is normally distributed. humidity is a little weird, but I'll probably drop it later anyways.  
-
-The coefficient of variation value (cv) is \< 50, so apparently standardization won't make a difference? Am i interpreting that correctly? Since cv values are very low for both the species and environmental data sets, I wont standardize any of it for now.  
+Env data: My data is mixed scale, so I'm going to standardize. It's all normally distributed, so it will be straightforward. Looking at these options, I think z-score is the best move. 
 		
 
 ```{r standardize, echo=FALSE}
@@ -115,28 +113,61 @@ par(mfrow = c(2,3))
 			xlab="dwd", 
 			main=NA)
 
+env.log <- data.trans(env_cont, method="log", plot=F)
+env.power <- data.trans(env_cont, method="power", exp=0.5, plot=F)
+env.asin <- data.trans(env_cont, method="asin", plot=F)
+env.scal <- decostand(env_cont, "max") #Standardization by max value of each column
+env.relsp <- decostand(env_cont, "total", MARGIN=2) #Standardization by column totals
 env.zscore <- decostand(env_cont, "standardize") #Z-scores the data in each column
-par(mfrow = c(3,2))
-		hist(env.zscore$elev, 
-		     xlab="elev", 
-		     main=NA)
-		hist(env.zscore$temp, 
-		     xlab="temp", 
-		     main=NA)
-		hist(env.zscore$soil_moist, 
-		     xlab="soil moist", 
-		     main=NA)
-		hist(env.zscore$hum, 
-		     xlab="hum", 
-		     main=NA)
-		hist(env.zscore$dwd_cov, 
-		     xlab="dwd", 
-		     main=NA)
+env.rel <- decostand(env_cont, "total") #Standardization by max value of each site/row
+env.norm <- decostand(env_cont, "normalize") #Give a length of 1 to each row vector (chord 
+			#transformation), very useful for Euclidean distances (PCA, RDA) and can be used on 
+			#log-transformed data
+env.hel <- decostand(env_cont, "hellinger") #Square root of relative values per site, obtained 
+			#by applying chord transformation to square root transformed data
+env.chi <- decostand(env_cont, "chi.square") #Double standardization by columns and rows
+env.wis <- wisconsin(env_cont) #Wisconsin standardization, values are ranged by column maxima 
+			#and then by site totals
+
+	#Let's see what each of these transformations looks like for temp:
+
+		par(mfrow = c(2,2))
+		boxplot(env_cont$temp,
+			env.power$temp,
+			env.log$temp,
+			las = 1,
+			main = "Simple Transformations-temp",
+			names = c("raw data","sqrt","log"),
+			col = "#FF5050"
+			)
+		boxplot(env.scal$temp,
+			env.relsp$temp,
+   			env.zscore$temp,
+			las = 1,
+			main = "Standardizations by Variable",
+			names = c("max","total","Z-score"),
+			col = "#9BE1AF"
+			)
+		boxplot(env.hel$temp,
+			env.rel$temp,
+			env.norm$temp,
+			las = 1,
+			main = "Standardizations by Sites",
+			names = c("Hellinger","total","norm"),
+			col = "#46AFAA"
+			)
+		boxplot(env.chi$temp,
+			env.wis$temp,
+			las = 1,
+			main = "Double Standardizations",
+			names = c("Chi-square","Wisconsin"),
+			col = "#FAD223"
+			)
 ```
 
 ### Question 5) Considering the histograms of the data, how effective do you think your transformation/standardization is?
 
-I think the log+1 histogram looks the best and is the transformation I should move forward with. The square root also does not look bad.  
+Sal data: I think the log+1 histogram looks the best and is the transformation I should move forward with. The square root also does not look bad.  
 
 ```{r transformation, echo=FALSE}
 
@@ -171,73 +202,31 @@ par(mfrow = c(2,3))
 			)
 ```
 
-I ran some options with elevation since the scale is the farthest from the rest of my variables. I think z-scoring it is a good option, but might not be necessary since the cv value is so low? Unsure about this.  
+Env data: Z-score looks pretty good for these.
 
 ```{r env transformation, echo=FALSE, warning=FALSE}
-
-env.log <- data.trans(env_cont, method="log", plot=F)
-env.power <- data.trans(env_cont, method="power", exp=0.5, plot=F)
-env.asin <- data.trans(env_cont, method="asin", plot=F)
-
-env.scal <- decostand(env_cont, "max") #Standardization by max value of each column
-
-env.relsp <- decostand(env_cont, "total", MARGIN=2) #Standardization by column totals
-
-env.zscore <- decostand(env_cont, "standardize") #Z-scores the data in each column
-
-env.rel <- decostand(env_cont, "total") #Standardization by max value of each site/row
-
-env.norm <- decostand(env_cont, "normalize") #Give a length of 1 to each row vector (chord 
-			#transformation), very useful for Euclidean distances (PCA, RDA) and can be used on 
-			#log-transformed data
-
-env.hel <- decostand(env_cont, "hellinger") #Square root of relative values per site, obtained 
-			#by applying chord transformation to square root transformed data
-
-env.chi <- decostand(env_cont, "chi.square") #Double standardization by columns and rows
-
-env.wis <- wisconsin(env_cont) #Wisconsin standardization, values are ranged by column maxima 
-			#and then by site totals
-
-	#Let's see what each of these transformations looks like for the "Max Depth (m)" variable:
-
-		par(mfrow = c(2,2))
-		boxplot(env_cont$elev,
-			env.power$elev,
-			env.log$elev,
-			las = 1,
-			main = "Simple Transformations",
-			names = c("raw data","sqrt","log"),
-			col = "#FF5050"
-			)
-		boxplot(env.scal$elev,
-			env.relsp$elev,
-   			env.zscore$elev,
-			las = 1,
-			main = "Standardizations by Variable",
-			names = c("max","total","Z-score"),
-			col = "#9BE1AF"
-			)
-		boxplot(env.hel$elev,
-			env.rel$elev,
-			env.norm$elev,
-			las = 1,
-			main = "Standardizations by Sites",
-			names = c("Hellinger","total","norm"),
-			col = "#46AFAA"
-			)
-		boxplot(env.chi$elev,
-			env.wis$elev,
-			las = 1,
-			main = "Double Standardizations",
-			names = c("Chi-square","Wisconsin"),
-			col = "#FAD223"
-			)
+		env.zscore <- decostand(env_cont, "standardize") #Z-scores the data in each column
+par(mfrow = c(2,3))
+		hist(env.zscore$elev, 
+		     xlab="elev", 
+		     main=NA)
+		hist(env.zscore$temp, 
+		     xlab="temp", 
+		     main=NA)
+		hist(env.zscore$soil_moist, 
+		     xlab="soil moist", 
+		     main=NA)
+		hist(env.zscore$hum, 
+		     xlab="hum", 
+		     main=NA)
+		hist(env.zscore$dwd_cov, 
+		     xlab="dwd", 
+		     main=NA)
 ```
 
 ### Question 6) If you are working with environmental predictors in your data, do any of them covary? Which ones will you remove?
 
-Out of the continuous variables, it looks like temperature and humidity covary. I may remove humidity because I think temperature is a more reliable predictor of salamander behavior.  
+Temperature and humidity covary, but I will leave them both for now.  
 
 ```{r correllation, echo=FALSE}
 
@@ -260,7 +249,7 @@ Treatments:
 - UU = unharvested, unburned  
 
 ```{r, echo=FALSE}
-p1 <- ggplot(env) + geom_boxplot(aes(x = trt, y = soil_moist), fill = "#FF5050", alpha=0.8)
+    p1 <- ggplot(env) + geom_boxplot(aes(x = trt, y = soil_moist), fill = "#FF5050", alpha=0.8)
 		p2 <- ggplot(env) + geom_boxplot(aes(x = trt, y = temp), fill = "#FF5050", alpha=0.8)
 		p3 <- ggplot(env) + geom_boxplot(aes(x = trt, y = hum), fill = "#FF5050", alpha=0.8)
 		p4 <- ggplot(env) + geom_boxplot(aes(x = trt, y = canopy_cov), fill = "#FF5050", alpha=0.8)
@@ -271,12 +260,12 @@ ggarrange(p1, p2, p3, p4, p5, ncol=3, nrow=2)
 
 ### Question 7) Do you have outliers in your data? How will you handle them? Do you think there are ecological reasons for keeping any outliers in your analysis?
 
-I have a few outliers, and some of them appear to be sites that are high in elevation. The outliers for the environmental and salamander only overlap at one site. Does that mean I dont need to be worried about removing them?  
+I have a few outliers, and some of them appear to be sites that are high in elevation. The outliers for environmental and salamander data do not overlap.
 
 ```{r outliers, echo=FALSE}
-saloutlier <- mv.outliers(sals, method = "euclidean", sd.limit=2)
+saloutlier <- mv.outliers(sals, method = "euclidean", sd.limit=3)
 
-envoutlier <- mv.outliers(env_cont, method = "euclidean", sd.limit=2)
+envoutlier <- mv.outliers(env_cont, method = "euclidean", sd.limit=3)
 
 
 ```

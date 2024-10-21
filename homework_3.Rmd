@@ -120,12 +120,9 @@ I think a lot of these would be interesting to look at. I should probably focus 
 
 ### Question 6) Which association matrix(ces) is/are most appropriate for your data? Justify your choice.  
 
-Species data - I only have two, do I do any of this?
-*Species data generally uses asymmetrical dissimilarity matrix. For this I'm not sure if Bray-Curtis or Hellinger would be a better fit, but Bray-Curtis seems like the most used choice. I could ue Chi-square, since it is particularly useful for when rare species drive trends - but in my data, the generally "rare" species does not look rare because I targeted my surveys for that species.*
+Species data - Jaccard or sorensens for presence/absense data. Probably Bray-Curtis if I use the count data.
 
-For environmental data:
-**Pearson's**: looking at correlations between environmental data and abundance (linear, continuous). could switch to kendall if not all of my variables are linear.
-**Covariance matrix**: measure how variables change together, could help identify the variables that are driving most of the change between sites/treatments
+Environmental data - for the z-scored data, use euclidean distance matrix
 
 
 ### Question 7) In ecological data analysis, the “double zero problem” can affect the interpretation of similarity and distance matrices. Explain what the double zero problem is and how it can influence the results of multivariate analyses. Do you foresee this being an issue for your data? If so, how will you address this problem through the preparation of your data prior to analysis and/or selection of an association matrix?

@@ -1,0 +1,238 @@
+---
+title: "Homework 4"
+author: "Jasmine Williamson"
+date: "2024-10-21"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+#setup
+  setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+  
+  library(vegan)
+  library(pastecs)
+  library(corrplot)
+  library(ggplot2)
+  library(ggpubr)
+  
+  source("biostats.R")
+
+#data
+#subplot-level
+  plot <- read.csv("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/habitat.occu.complete.csv",row.names=1)
+  allsals <- plot[,22:27]
+
+#site-level
+  dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+  row.names(dat) <- dat[,1]
+  
+  dat2 <- subset(dat, year=="2024")
+  sals <- dat2[26:27]
+  env <- dat2[1:25]
+      
+  drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
+  env <- env[,!(colnames(env) %in% drop)]
+      
+  env_cont <- env[,-1]
+  
+  drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
+  env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+    		
+```
+
+Standardizing and Transforming the data. 
+```{r standardize and transform}
+#env data
+  env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
+  env_subset_std <- decostand(env_subset, "standardize") #Z-scores the data in each column
+
+  #standardizing salamanders by sampling area
+  sal_dens <- sals 
+  for(i in 1:nrow(sals)){	
+      sal_dens[i,] <- sals[i,]/567
+    }
+        
+#transforming and standardizing the data as needed
+  log_sal_cou <- log(sals + 1)
+  log_sal_dens <- log(sal_dens + .1)
+    		
+  
+  par(mfrow = c(2,2))
+		hist(sals$oss, 
+			xlab="count", 
+			ylab="Frequency", 
+			main="sal count raw")
+		hist(sal_dens$oss, 
+			xlab="density", 
+			ylab="Frequency", 
+			main="sal density/m^2")
+    hist(log_sal_cou$oss, 
+			xlab="count", 
+			ylab="Frequency", 
+			main="log+1 sal count")
+		hist(log_sal_dens$oss, 
+			xlab="density", 
+			ylab="Frequency", 
+			main="log+0.1 sal density")
+		
+```
+
+
+###Question 1) Explain the different linkage methods (single, complete, average, and Ward’s) used in agglomerative
+hierarchical clustering. How does each method affect the shape and size of the resulting clusters?
+
+*Single-linkage* methods use the minimum distance between points to create clusters. Often results in a chain effect.
+*Complete-linkage* methods use the maximum distance between points to create clusters. Produces more compact sperical clusters.
+*Intermediate methods* use a compromise between single and complete to create clusters, ex: the *average method* uses the average distance between points. Dendrograms show the hierarchy of clusters and can be more intuitive.
+*Wards methods* choose the lowest variance to create clusters. This results in compact clusters with little variance.
+
+
+###Question 2) Discuss the implications of choosing different association coefficients in agglomerative hierarchical
+clustering. How do these choices impact the clustering results?
+
+The association matrix influences how clusters are formed. They emphasize different parts of the data, so the one you choose has to match your objectives. Some matrices are sensitive to outliers, data scaling, zeros, etc, and these things can cause issues that will impact the clustering. The shape, size, and makeup of the clusters can be affected pretty substantially with different matrices.
+
+Salamander pres/abs: Jaccard or Sorensen association methods. The plot is weird, I cant figure out why there are only three points. Is this bad? Also, the coldiss functions for these will not work.
+```{r pres/abs assoc}
+sal_occ <- data.trans(sals, method="power", exp=0, plot=F)
+sal.jac <- vegdist(sal_occ, method="jaccard") 
+sal.sor <- vegdist(sal_occ, method="bray") 
+
+		plot(sal.jac, sal.sor, 
+			xlab="Jaccard's coefficient", 
+			ylab="Sorensen's coefficient",
+			pch=21,
+			col="black")
+			abline(0, 1, col="darkgray")
+```
+Salamander abundance: Bray curtis or hellinger.
+(coldiss functions still wont work for these, Error in if (max(D) > 1) D <- D/max(D) : 
+  missing value where TRUE/FALSE needed)
+```{r abund assoc}
+sal.bray <- vegdist(log_sal_cou, method="bray")
+sal.hel <- decostand(sals, "hellinger") 
+plot(sal.bray, sal.hel, 
+	  		xlab="Bray-Curtis distance", 
+	  		ylab="Hellinger distance",
+	  		pch=21,
+	  		col="black")
+	  		abline(0, 1, col="darkgray")
+```
+
+
+Env data: Euclidean distance method
+```{r env assoc}
+env.euc <- vegdist(env_std, metric="euclidean")
+env.euc.subs <- vegdist(env_subset_std, metric="euclidean")
+
+```
+
+
+###Question 3) Try each of the agglomerative hierarchical clustering methods with your own dataset. Which
+one appears to perform best? What is the optimal number of clusters? Verify this using the appropriate
+non-statistical and statistical approaches.
+
+
+Single Linkage
+I have spent most of today working with this and I'm really struggling to get my data to work with any of these. Issues with the species data makes sense because I only have two specie,s but not sure why the env data isnt working. Even when I subsetted things and used a smaller number of sites and variables it looks like poo. Is it just because I have so many sites?
+```{r single}
+sals.sin <- hclust(sal.hel, method = "single")
+  		plot(sals.sin, main="Single Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Hellinger", 
+  		     hang=-1)
+
+env.sin <- hclust(env.euc, method = "single")
+  		plot(env.sin, main="Single Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Euclidean", 
+  		     hang=-1)
+  		
+env.sin2 <- hclust(env.euc.subs, method = "single")
+  		plot(env.sin2, main="Single Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Euclidean", 
+  		     hang=-1)
+```
+
+
+Complete Linkage - these might look slightly better
+```{r complete}
+salcl.com <- hclust(sal.hel, method = "complete")
+  		plot(salcl.com, main="Complete Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Hellinger", 
+  		     hang=-1)
+  		
+env.com <- hclust(env.euc.subs, method = "complete")
+  		plot(env.com, main="Complete Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Euclidean", 
+  		     hang=-1)
+```
+
+
+Average Linkage
+```{r average}
+salcl.ave <- hclust(sal.hel, method = "average")
+  		plot(salcl.ave, main="Average Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Hellinger", 
+  		     hang=-1)
+  		
+env.ave <- hclust(env.euc.subs, method = "average")
+  		plot(env.ave, main="Avg Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Euclidean", 
+  		     hang=-1)
+```
+
+
+Wards
+```{r wards}
+salcl.ward <- hclust(sal.hel, method = "ward.D2")
+  		plot(salcl.ward, main="Ward's Minimum Variance Dendrogram",
+    			xlab="Sites", 
+			ylab="Hellinger", 
+			hang=-1)
+
+envcl.ward <- hclust(env.euc.subs, method = "ward.D2")
+  		plot(envcl.ward, main="Complete Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Euclidean", 
+  		     hang=-1)
+```
+
+
+###Question 4) Do you see any evidence that noise and outliers are impacting your results? If so, how could
+you treat the data differently to account for these sources of error?
+
+I'm really not sure what I'm looking at in terms of errors here. There are some sites that are so different from the others that its really stretching the y-axis. There are so many connections that its hard to parse out, so I subsetted the data to use only one year of sites and a subset of the env data but it didnt seem to fix things.
+
+
+###Question 5) Discuss the advantages and disadvantages of using divisive hierarchical clustering over agglomerative
+hierarchical clustering in ecological data analysis. When you run a divisive analysis (DIANA) using
+your data, how do the results differ from the agglomerative clustering output?
+
+
+
+###Question 6) Explain the k-means clustering algorithm and list key steps. When you run a k-means partitioning
+analysis using your data, how do the results compare to the hierarchical clustering output(s)? Based
+on the sum of squares error, do you think the resulting solution makes sense?
+
+
+
+###Question 7) Discuss the role of initialization in k-means clustering. How do different initialization methods
+impact the convergence and final results of the algorithm?
+
+
+
+###Question 8) Explain the concept of indicator species in ecological analysis. How are indicator species
+identified and used to interpret ecological data? Do there appear to be any indicator species in your data,
+and if so, for what site groups and are the indicator values significant?
+
+

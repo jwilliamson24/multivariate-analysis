@@ -7,6 +7,10 @@
 ###############################################################
 
 
+#i cant cluster my sites based on species assemblages; that's not what my data is meant to do
+#i got a few to run just for the practice but theyre obviously quite ugly and not helpful
+
+
 ## Lab Objectives
 
 	#The goal of hierarchical cluster analysis is to classify objects such as species, habitats, or environmental 
@@ -21,87 +25,58 @@
 		#Use non-statistical and statistical methods to assess clustering results and determine the appropriate 
 			#number of clusters.
 
-## Setting up the R Workspace and Preparing the Data
-
-	#We will load the necessary packages and prepare the dataset as we have done previously. This should be second 
-		#nature by now!
-
-	#1) Loading packages and source code
-
-		library(vegan)
-		library(cluster)
-
-    setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
-
-	#2) Loading the data
-
-      dat <- read.csv("Harney_Fishes_2007.csv", row.names = 1)
-      source("Biostats.R")
-      
-  		sub_dat <- subset(dat, SMU=="Malheur")
-
-	#We will once again subset the data to include only the Malheur sites since the entire dataset is too large to 
-		#effectively visualize.
-
-	#3) Omitting species with zero observations and sites without fish
-
-		spp_N <- colSums(sub_dat[,16:ncol(sub_dat)])
-		spp_0 <- subset(spp_N, spp_N == 0)
-		omit <- names(spp_0)
-
-		dat2 <- sub_dat[,!(colnames(sub_dat) %in% omit)]
-	
-  		dat3 <- dat2[rowSums(dat2[,16:ncol(dat2)]) >0, ]
-
-	#4) Dealing with missing data
-
-		dat3$Herbaceous[is.na(dat3$Herbaceous)] <- 0 
-		dat3$Ann_Herb[is.na(dat3$Ann_Herb)] <- 0
-	
-		dat3 <- dat3[complete.cases(dat3$SiteLength),]
-		dat_final <- dat3
-
-	#5) Splitting the data set into environmental variables and species abundances
-
-		fish <- dat_final[,16:ncol(dat_final)]
-		env <- dat_final[,1:15]
-
-	#6) Dropping rare species
-
-  		fish_red <- drop.var(fish, min.fo=1)
-
-	#7) Standardizing species observed abundance by sampling effort
-
-  		fish_dens <- fish_red
-  		for(i in 1:nrow(fish_red)){	
-    			fish_dens[i,] <- fish_red[i,]/env$SiteLength[i]
-    			}
-
-	#8) Selecting relevant environmental data without covarying factors
-
-		drop <- c("Latitude","Longitude","SiteLength","SiteWidth","SurfaceArea")
-		env <- env[,!(colnames(env) %in% drop)]
-		env_cont <- env[,!(colnames(env) %in% c("SMU","Pop","NLCD_Cat"))]
+  #1) Loading packages and source code
   
-		env <- env[,!(colnames(env) %in% c("Ave_Max_D","Ann_Herb"))]
-		env_cont <- env_cont[,!(colnames(env_cont) %in% c("Ave_Max_D","Ann_Herb"))]
+      library(vegan)
+      library(nomclust)
+      library(BioStatR)
+      library(RColorBrewer)
+      library(gclus)
+      
+      setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+      source("Biostats.R")
+      source("coldiss.R")
+      
+  
+  #2) Loading and subsetting site level data
+      
+      dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+      row.names(dat2) <- dat2[,1]
+      
+      sals <- dat2[,c("oss","enes")]
+      
+      drop <- c("lat","long","landowner","stand","tree_farm","year","weather","size_cl",
+                "length_cl","site_id","oss","enes")
+      env <- dat2[,!(colnames(dat2) %in% drop)]
+  
+      env_cont <- env[, !colnames(env) %in% "trt"]
 
-	#9) Checking for outliers (remember, we are ignoring them for now)
 
-	#10) Transforming and standardizing the data as needed
-
-  		log_fish_abu <- log(fish_red + 1)
-  		log_fish_dens <- log(fish_dens + 1)
-
-  		env_std <- decostand(env_cont, "max")
+  #3) Standardizing salamanders by sampling area
+      
+      sal_dens <- sals 
+      for(i in 1:nrow(sals)){	
+          sal_dens[i,] <- sals[i,]/567
+        }
+      
+ 
+  #4) Transforming and standardizing the data as needed
+  		
+  		log_sal_cou <- log(sals + 1)
+  		log_sal_dens <- log(sal_dens + 1)
+  		
+  		env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
+  		
 
 ## Agglomerative Hierarchical Clustering Methods
 
 	#The first step prior to conducting a cluster analysis is to produce an association matrix. We've already 
 		#determined that, for the species abundance data, the Bray-Curtis matrix is a good choice.
 
-  		fish.bra <- vegdist(log_fish_dens, "bray")
-
+  		sals.bra <- vegdist(sals,"bray")
+  		
+  		sal.hel <- decostand(sals, "hellinger") 
+  		
 ### Single Linkage
 
 	#Single linkage clustering merges clusters based on the *minimum* distance between points. Although it is a 
@@ -113,6 +88,14 @@
 			xlab="Sites", 
 			ylab="Bray-Curtis Dissimilarity", 
 			hang=-1)
+  		
+  		
+  		sals.sin <- hclust(sal.hel, method = "single")
+  		
+  		plot(sals.sin, main="Single Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Bray-Curtis Dissimilarity", 
+  		     hang=-1)
 
 ### Complete Linkage
 
@@ -125,7 +108,15 @@
 			xlab="Sites", 
 			ylab="Bray-Curtis Dissimilarity", 
 			hang=-1)
-
+  		
+  		
+  		salcl.com <- hclust(sal.hel, method = "complete")
+  		
+  		plot(salcl.com, main="Complete Linkage Dendrogram",
+  		     xlab="Sites", 
+  		     ylab="Bray-Curtis Dissimilarity", 
+  		     hang=-1)
+  		
 ### Average Linkage
 
 	#Average linkage clustering (UPGMA) is a useful intermediate that merges clusters based on the average 
@@ -137,6 +128,14 @@
     			xlab="Sites", 
 			ylab="Bray-Curtis Dissimilarity", 
 			hang=-1)
+
+  		
+  		salcl.ave <- hclust(sal.hel, method = "average")
+  		
+  		plot(salcl.ave, main="Average Linkage Dendrogram (UPGMA)",
+  		     xlab="Sites", 
+  		     ylab="Bray-Curtis Dissimilarity", 
+  		     hang=-1)
 
 ### Weighted Average Linkage
 
@@ -150,6 +149,14 @@
     			xlab="Sites", 
 			ylab="Bray-Curtis Dissimilarity", 
 			hang=-1)
+  		
+  		
+  		salcl.wpgma <- hclust(sal.hel, method = "mcquitty")
+  		
+  		plot(salcl.wpgma, main="Weighted Average Linkage Dendrogram (WPGMA)",
+  		     xlab="Sites", 
+  		     ylab="Bray-Curtis Dissimilarity", 
+  		     hang=-1)
 
 ### Centroid Linkage
 

@@ -6,6 +6,9 @@
 ###Date: October 8, 2024						###
 ###############################################################
 
+#something about my data isnt working well with these. jaccards/sorensen graphs only have a few points, 
+#env variable ones look weird, coldiss plots either dont work or just have four quandrants, 
+#i get 50 or more warnings on a lot of these lines of code
 
 ## Lab Objectives
 
@@ -29,6 +32,7 @@
 
 	#1) Loading packages and source code
 
+    rm(list = ls())
 		library(vegan)
 		library(nomclust)
 		library(BioStatR)
@@ -42,6 +46,7 @@
 		# source("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\Biostats.R")
 		# source("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\coldiss.R")
 
+    
 	#2) Loading site level data
     dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
     row.names(dat2) <- dat2[,1]
@@ -55,14 +60,23 @@
     #env_cont <- env[,c("elev","temp","hum","soil_moist","canopy_cov","veg_cov",
     #                   "dwd_cov","fwd_cov","jul_date","dwd_dens","decay_cl","char_cl")]
     env_cont <- env[, !colnames(env) %in% "trt"]
+   
+     
+  #3) Standardizing salamanders by sampling area
     
-
-	#10) Transforming and standardizing the data as needed
+    sal_dens <- sals 
+    for(i in 1:nrow(sals)){	
+      sal_dens[i,] <- sals[i,]/567
+    }
     
     
-    log_sals <- log(sals + 1)
+	#4) Transforming and standardizing the data as needed
+    
+    log_sal_cou <- log(sals + 1)
+    log_sal_dens <- log(sal_dens + 1)
+    
     env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
-      
+    
 
 ## Q-Mode: (Dis)similarity and Distance Matrices
 
@@ -71,9 +85,7 @@
 	#Analyses can be performed on binary (0-1) data, including for species presence/absence data when binary 
 		#values are the only data available or when abundances are irrelevant.
 
-	#Since our class dataset is quantitative, we'll first convert it to a presence/absence format using the 
-		#following transformation:
-
+	#Convert count to a presence/absence format:
   		sal_occ <- data.trans(sals, method="power", exp=0, plot=F)
 
 	#The simple matching coefficient is a symmetric measure of similarity that is computed as the number of 
@@ -120,6 +132,8 @@
 
 	#Another helpful coefficient for presence/absence data is **Ochiai's similarity**, which is an asymmetric 
 		#coefficient that is closely related to the chord, Hellinger, and log-chord transformations.
+  		
+
 
 ### (Dis)similarity Coefficients for Species Abundance Data
 
@@ -131,7 +145,7 @@
 		#although it can be computed from raw data. This metric gives the same importance to absolute differences 
 		#in abundance, irrespective of their order of magnitude. That is, it weighs abundant and rare species similarly.
 
-		sal.bray <- vegdist(log_sals, method="bray")
+		sal.bray <- vegdist(log_sal_cou, method="bray")
 
 	#The chord distance is a Euclidean distance computed on site (object) vectors that have been normalized to 
 		#length 1 (also referred to as the chord transformation). The log-chord distance is simply the chord 
@@ -179,6 +193,36 @@
 		#to be good indicators of special ecological conditions.
 
 	  sal.chi <- vegdist(log_sals, method="chi")
+	  
+	  
+	#Retry these using the sal density data
+	  
+	  sald.bray <- vegdist(log_sal_dens, method="bray")
+	  
+	  sald.cho <- decostand(sal_dens, "normalize") 
+	  sald.cho <- dist(sald.cho)
+	  
+	  sald.hel <- decostand(sal_dens, "hellinger") 
+	  sald.hel <- dist(sald.hel)
+	 
+	  
+	  plot(sald.cho, sald.hel, 
+	       xlab="Chord distance", 
+	       ylab="Hellinger distance",
+	       main="sal dens",
+	       pch=21,
+	       col="black")
+	  abline(0, 1, col="darkgray")
+	  
+	
+	  plot(sald.bray, sald.hel, 
+	       xlab="Bray-Curtis distance", 
+	       ylab="Hellinger distance",
+	       main="sal dens",
+	       pch=21,
+	       col="black")
+	  abline(0, 1, col="darkgray")
+	  
 
 ### Similarity Coefficients for Mixed Data Types and Environmental Data
 
@@ -238,7 +282,7 @@
 	#Quantitative variables such as environmental data must be dimensionally homogeneous (i.e., standardized) 
 		#prior to R-mode analysis. For variables with largely linear relationships, Pearson's correlation coefficient 
 		#is sufficient.
-  	drop <- c("jul_date","canopy_cov","veg_cov","fwd_cov","stumps","logs","decay_cl","char_cl" )
+  	drop <- c("jul_date","canopy_cov","veg_cov","fwd_cov","char_cl" )
   	env_std_subset <- env_std[,!(colnames(env_std) %in% drop)]
   		
 		env.pearson <- cor(env_std_subset)
