@@ -9,7 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r setup, include=FALSE}
+```{r data, include=FALSE}
 #setup
   setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
   
@@ -18,8 +18,17 @@ knitr::opts_chunk$set(echo = TRUE)
   library(corrplot)
   library(ggplot2)
   library(ggpubr)
+  library(vegan)
+  library(nomclust)
+  library(BioStatR)
+  library(RColorBrewer)
+  library(gclus)
+	library(dplyr)
+	library(cluster)
+	library(indicspecies)
   
   source("biostats.R")
+  source("coldiss.R")
 
 #data
 #subplot-level
@@ -50,7 +59,7 @@ Standardizing and Transforming the data.
   env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
   env_subset_std <- decostand(env_subset, "standardize") #Z-scores the data in each column
 
-  #standardizing salamanders by sampling area
+#standardizing salamanders by sampling area
   sal_dens <- sals 
   for(i in 1:nrow(sals)){	
       sal_dens[i,] <- sals[i,]/567
@@ -59,7 +68,8 @@ Standardizing and Transforming the data.
 #transforming and standardizing the data as needed
   log_sal_cou <- log(sals + 1)
   log_sal_dens <- log(sal_dens + .1)
-    		
+```
+```{r sal plots, echo=FALSE}
   
   par(mfrow = c(2,2))
 		hist(sals$oss, 
@@ -78,17 +88,16 @@ Standardizing and Transforming the data.
 			xlab="density", 
 			ylab="Frequency", 
 			main="log+0.1 sal density")
-		
 ```
 
 
 ###Question 1) Explain the different linkage methods (single, complete, average, and Ward’s) used in agglomerative
 hierarchical clustering. How does each method affect the shape and size of the resulting clusters?
 
-*Single-linkage* methods use the minimum distance between points to create clusters. Often results in a chain effect.
-*Complete-linkage* methods use the maximum distance between points to create clusters. Produces more compact sperical clusters.
-*Intermediate methods* use a compromise between single and complete to create clusters, ex: the *average method* uses the average distance between points. Dendrograms show the hierarchy of clusters and can be more intuitive.
-*Wards methods* choose the lowest variance to create clusters. This results in compact clusters with little variance.
+**Single-linkage** methods use the minimum distance between points to create clusters. Often results in a chain effect.  
+**Complete-linkage** methods use the maximum distance between points to create clusters. Produces more compact sperical clusters.  
+**Intermediate methods** use a compromise between single and complete to create clusters, ex: the *average method* uses the average distance between points. Dendrograms show the hierarchy of clusters and can be more intuitive.  
+**Wards methods** choose the lowest variance to create clusters. This results in compact clusters with little variance.  
 
 
 ###Question 2) Discuss the implications of choosing different association coefficients in agglomerative hierarchical
@@ -96,8 +105,8 @@ clustering. How do these choices impact the clustering results?
 
 The association matrix influences how clusters are formed. They emphasize different parts of the data, so the one you choose has to match your objectives. Some matrices are sensitive to outliers, data scaling, zeros, etc, and these things can cause issues that will impact the clustering. The shape, size, and makeup of the clusters can be affected pretty substantially with different matrices.
 
-Salamander pres/abs: Jaccard or Sorensen association methods. The plot is weird, I cant figure out why there are only three points. Is this bad? Also, the coldiss functions for these will not work.
-```{r pres/abs assoc}
+Salamander pres/abs: Jaccard or Sorensen association methods. The plot is weird, I cant figure out why there are only three points. Is this bad? Also, the coldiss functions for these will not work. I get lots of warnings that I cant figure out as well.
+```{r pres/abs assoc, echo=FALSE}
 sal_occ <- data.trans(sals, method="power", exp=0, plot=F)
 sal.jac <- vegdist(sal_occ, method="jaccard") 
 sal.sor <- vegdist(sal_occ, method="bray") 
@@ -112,9 +121,10 @@ sal.sor <- vegdist(sal_occ, method="bray")
 Salamander abundance: Bray curtis or hellinger.
 (coldiss functions still wont work for these, Error in if (max(D) > 1) D <- D/max(D) : 
   missing value where TRUE/FALSE needed)
-```{r abund assoc}
+```{r abund assoc, echo=FALSE}
 sal.bray <- vegdist(log_sal_cou, method="bray")
-sal.hel <- decostand(sals, "hellinger") 
+	sal.hel <- decostand(sals, "hellinger") 
+		sal.hel <- dist(sal.hel)
 plot(sal.bray, sal.hel, 
 	  		xlab="Bray-Curtis distance", 
 	  		ylab="Hellinger distance",
@@ -218,21 +228,128 @@ I'm really not sure what I'm looking at in terms of errors here. There are some 
 hierarchical clustering in ecological data analysis. When you run a divisive analysis (DIANA) using
 your data, how do the results differ from the agglomerative clustering output?
 
+Divisive clustering is more suitable for well-separated groups but is computationally intensive. Agglomerative clustering is more computationally efficient but is sensitive to outliers.
+
+This approach does look a little more organized than the ones above.
+```{r diana}
+diana_sals <- diana(as.dist(sal.hel))
+hclus.scree(diana_sals)
+plot(diana_sals, which=2, main="DIANA Dendrogram", 
+			xlab="Sites", 
+			ylab="Hellinger", 
+			hang=-1)
+			rect.hclust(diana_sals, k=5)
+```
 
 
 ###Question 6) Explain the k-means clustering algorithm and list key steps. When you run a k-means partitioning
 analysis using your data, how do the results compare to the hierarchical clustering output(s)? Based
 on the sum of squares error, do you think the resulting solution makes sense?
 
+K-means partitioning is meant to reduce the variation within clusters, but requires that you set the number of clusters beforehand. First is initialization, then assigning points to clusters, assigning a new centroid from the new mean, and repeat.
+
+```{r}
+nhclus.scree(sal.hel, max.k = 20)
+salcl.kmeans.cas <- cascadeKM(sal.hel, inf.gr=2, sup.gr=10, iter=100)
+plot(salcl.kmeans.cas, sortg=T)
+salcl.kmeans.cas$results
+
+sal.kmeans <- kmeans(sal.hel, centers=4, iter.max=10000, nstart=10)
+
+plot(log_sal_dens$oss, log_sal_dens$enes, 
+			col = sal.kmeans$cluster, 
+			pch = 19, 
+  			main = "K-Means Clustering with 4 Clusters", 
+			xlab="oss", 
+			ylab="enes")
+```
 
 
 ###Question 7) Discuss the role of initialization in k-means clustering. How do different initialization methods
 impact the convergence and final results of the algorithm?
 
+Initialization uses the number of clusters you chose and creates that many initial centroids from which to start creating clusters. There are several methods and they impact the quality of the final clusters and can make the analysis slow. Most of them are a trade off between computationaly simple/fast and more in depth analysis.
 
 
 ###Question 8) Explain the concept of indicator species in ecological analysis. How are indicator species
 identified and used to interpret ecological data? Do there appear to be any indicator species in your data,
 and if so, for what site groups and are the indicator values significant?
 
+Indicator species are sensitive to environmental change and are therefor important for monitoring environmental health and stability. They are identified using indicator species analysis and other methods. My main study species is known to be an indicator species, but that isnt showing up in my data (i have theories about why)... 
+
+This shows that ENES is associated with BU (burned, unharvested) and UU (unburned, unharvested) sites, and ODF and BLM land; these are considered our most pristine or least changed sites. ENES are much more mobile than OSS and I think they just moved out of the sites where they didnt like the conditions, whereas OSS has to stick around and are persisting so far.
+```{r indicator}
+site_num <- env$trt
+  		ind_sp <- multipatt(log_sal_dens, site_num, func = "IndVal.g", control = how(nperm=999))
+  		summary(ind_sp)
+
+site_num <- dat2$landowner
+  		ind_sp <- multipatt(log_sal_dens, site_num, func = "IndVal.g", control = how(nperm=999))
+  		summary(ind_sp)
+
+```
+
+
+Here OSS is associated with clusters 2, 3, 4
+			#2: no canopy, high dwd, med decay (no canopy means harvested so this is weird!)
+			#3: high canopy, med dwd,high decay
+			#4: no canopy, med decay, med dwdcov
+```{r indicator cluster, echo=FALSE}
+envcl.ward <- hclust(env.euc, method = "ward.D")
+
+		plot(envcl.ward, main="Ward Dendrogram", 
+			xlab="Sites", 
+			ylab="Euclidean Distance", 
+			hang=-1)
+			rect.hclust(envcl.ward, k=5)
+
+		ENV_CLUS <- cutree(envcl.ward, k=5)
+
+		par(mfrow=c(2,2))
+
+		plot(as.factor(ENV_CLUS), env_cont$canopy_cov, 
+			ylim=c(0,4), 
+			col = rgb(red = 0, green = 0, blue = 0, alpha = 0.35),
+			ylab = "canopy", 
+			xlab="Cluster")
+			points(ENV_CLUS, env_cont$canopy_cov, 
+				pch=19, 
+				cex=1.5, 
+				col = rgb(red = 0, green = 0, blue = 1, alpha = 0.4))
+
+		plot(as.factor(ENV_CLUS), env_cont$dwd_cov, 
+			ylim=c(0,4), 
+			col = rgb(red = 0, green = 0, blue = 0, alpha = 0.35),
+			ylab = "dwdcov", 
+			xlab="Cluster")
+			points(ENV_CLUS, env_cont$dwd_cov, 
+				pch=19, 
+				cex=1.5, 
+				col = rgb(red = 0, green = 0, blue = 1, alpha = 0.4))
+
+		plot(as.factor(ENV_CLUS), env_cont$decay_cl, 
+			ylim=c(0,4), 
+			col = rgb(red = 0, green = 0, blue = 0, alpha = 0.35),
+			ylab = "decay", 
+			xlab="Cluster")
+			points(ENV_CLUS, env_cont$elev, 
+				pch=19, 
+				cex=1.5, 
+				col = rgb(red = 0, green = 0, blue = 1, alpha = 0.4))
+
+		plot(as.factor(ENV_CLUS), env_cont$temp, 
+			ylim=c(0,100), 
+			col = rgb(red = 0, green = 0, blue = 0, alpha = 0.35),
+			ylab = "temp", 
+			xlab="Cluster")
+			points(ENV_CLUS, env_cont$temp, 
+				pch=19, 
+				cex=1.5, 
+				col = rgb(red = 0, green = 0, blue = 1, alpha = 0.4))
+
+  		site_num <- ENV_CLUS
+  		ind_sp <- multipatt(log_sal_dens, site_num, func = "IndVal.g", control = how(nperm=999))
+			summary(ind_sp)
+
+```
 

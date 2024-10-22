@@ -167,7 +167,9 @@
 			xlab="Redband trout", 
 			ylab="Dace")
 
-	#Because we'll have to provide pre-determined site groupings for indicator species analysis below, 
+  		
+  		
+#Because we'll have to provide pre-determined site groupings for indicator species analysis below, 
 		#let's examine clusters in the environmental data as well.
 
   		env.euc <- vegdist(env_std, metric="euclidean")

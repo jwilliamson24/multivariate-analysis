@@ -141,34 +141,37 @@
 # 
 #   		fish.bray <- vegdist(log_fish_dens, "bray")
 # 
-# 	#The clustering algorithm is carried out in R using the `diana` function.
-# 
-#   		diana_fish <- diana(as.dist(fish.bray))
-# 
-# 	#Note that DIANA can also be carried out using the log-transformed abundance data with the code: 
-# 		#`diana_fish <- diana(log_fish_dens)`. This, may be advisable for very large datasets, where a 
-# 		#distance matrix will be substantially larger than the data matrix, thus requiring more computing power.
-# 
-# 	#The cophenetic correlation coefficient can be calculated for a divisive analysis the same way it's 
-# 		#calculated 
-# 		#for an agglomerative analysis. Remember that values range from 0 – 1, where a value closer to 1 
-# 			#indicates a solution of high quality. How does this solution compare to our agglomerative solution(s)?
-# 
-#   		hclus.cophenetic(fish.bray, diana_fish)
-# 
-# 	#We can also use an elbow plot to examine the optimal number of clusters in the same way as for agglomerative 
-# 		#clustering.
-# 
-#   		hclus.scree(diana_fish)
-# 
-# 	#In this case, it looks like there's a bit of a natural break around five clusters, which makes sense when 
-# 		#we visually assess the dendrogram.
-# 
-#   		plot(diana_fish, which=2, main="DIANA Dendrogram", 
-# 			xlab="Sites", 
-# 			ylab="Bray-Curtis Dissimilarity", 
-# 			hang=-1)
-# 			rect.hclust(diana_fish, k=5)
+	#The clustering algorithm is carried out in R using the `diana` function.
+
+  		diana_sals <- diana(as.dist(sal.hel))
+
+	#Note that DIANA can also be carried out using the log-transformed abundance data with the code:
+		#`diana_fish <- diana(log_fish_dens)`. This, may be advisable for very large datasets, where a
+		#distance matrix will be substantially larger than the data matrix, thus requiring more computing power.
+
+	#The cophenetic correlation coefficient can be calculated for a divisive analysis the same way it's
+		#calculated
+		#for an agglomerative analysis. Remember that values range from 0 – 1, where a value closer to 1
+			#indicates a solution of high quality. How does this solution compare to our agglomerative solution(s)?
+
+  		#hclus.cophenetic(fish.bray, diana_fish)
+
+	#We can also use an elbow plot to examine the optimal number of clusters in the same way as for agglomerative
+		#clustering.
+
+  		hclus.scree(diana_sals)
+  		
+	#In this case, it looks like there's a bit of a natural break around five clusters, which makes sense when
+		#we visually assess the dendrogram.
+
+  		plot(diana_sals, which=2, main="DIANA Dendrogram", 
+  		     xlab="Sites", 
+  		     ylab="Hellinger", 
+  		     hang=-1)
+  		rect.hclust(diana_sals, k=5)
+  		
+  		
+  		
 # 
 # 		fishcl.class <- cutree(diana_fish, k=5)
 # 
@@ -176,49 +179,49 @@
 # 			par(mfrow=c(3,3))
 # 			box.plots(fish_dat_new, by="fishcl.class")
 # 
-#   		plot(log_fish_dens$TROUT_RB, log_fish_dens$DACE_UNID, 
-# 			col = fishcl.class, 
-# 			pch = 19, 
-#     			main = "DIANA Clustering with 5 Clusters", 
-# 			xlab="Redband trout", 
+#   		plot(log_fish_dens$TROUT_RB, log_fish_dens$DACE_UNID,
+# 			col = fishcl.class,
+# 			pch = 19,
+#     			main = "DIANA Clustering with 5 Clusters",
+# 			xlab="Redband trout",
 # 			ylab="Dace")
-# 
-# ## K-Means Partitioning
-# 
-# 	#K-means partitioning or clustering is a non-hierarchical method used to partition data into k clusters by 
-# 		#minimizing within-cluster sum of squares error.
-# 
-# 	#The desired number of clusters must be set a-priori by the user. Based on our previous analyses, we can 
-# 		#guess that somewhere between 4-6 clusters is optimal for this dataset. If we're still unsure, we can 
-# 		#examine an elbow plot and silhouette width plot te get a better sense for the optimal number of clusters.
-#       dev.off()
-#   		nhclus.scree(fish.bray, max.k = 20)
-# 
-# 	#The Calinski-Harabasz (CH) Index, or the ratio of between-cluster separation to within-cluster dispersion 
-# 		#normalized by their degrees of freedom, is another way to determine the optimal number of clusters. A 
-# 		#higher CH value indicates better clustering.
-# 
+
+## K-Means Partitioning
+
+	#K-means partitioning or clustering is a non-hierarchical method used to partition data into k clusters by
+		#minimizing within-cluster sum of squares error.
+
+	#The desired number of clusters must be set a-priori by the user. Based on our previous analyses, we can
+		#guess that somewhere between 4-6 clusters is optimal for this dataset. If we're still unsure, we can
+		#examine an elbow plot and silhouette width plot te get a better sense for the optimal number of clusters.
+      # dev.off()
+  		# nhclus.scree(fish.bray, max.k = 20)
+
+	#The Calinski-Harabasz (CH) Index, or the ratio of between-cluster separation to within-cluster dispersion
+		#normalized by their degrees of freedom, is another way to determine the optimal number of clusters. A
+		#higher CH value indicates better clustering.
+
 # 		fishcl.kmeans.cas <- cascadeKM(fish.bray, inf.gr=2, sup.gr=10, iter=100)
 # 		plot(fishcl.kmeans.cas, sortg=T)
 # 		fishcl.kmeans.cas$results
 # 
 # 	#It looks like CH is maximized at four clusters.
 # 
-# 	#As for DIANA, K-means clustering can be performed either on the distance matrices or the raw data. 
+# 	#As for DIANA, K-means clustering can be performed either on the distance matrices or the raw data.
 # 		#For species abundances, it's best practice to use the distance matrix.
 # 
 # 		fish.kmeans <- kmeans(fish.bray, centers=4, iter.max=10000, nstart=10)
 # 		fish.kmeans
 # 
-#   		plot(log_fish_dens$TROUT_RB, log_fish_dens$DACE_UNID, 
-# 			col = fish.kmeans$cluster, 
-# 			pch = 19, 
-#   			main = "K-Means Clustering with 4 Clusters", 
-# 			xlab="Redband trout", 
+#   		plot(log_fish_dens$TROUT_RB, log_fish_dens$DACE_UNID,
+# 			col = fish.kmeans$cluster,
+# 			pch = 19,
+#   			main = "K-Means Clustering with 4 Clusters",
+# 			xlab="Redband trout",
 # 			ylab="Dace")
-# 
-# 	#Because we'll have to provide pre-determined site groupings for indicator species analysis below, 
-# 		#let's examine clusters in the environmental data as well.
+
+	#Because we'll have to provide pre-determined site groupings for indicator species analysis below,
+		#let's examine clusters in the environmental data as well.
 
   	
   	env_std_subset <- env_std[,c("temp","dwd_cov","soil_moist","stumps","logs","decay_cl","canopy_cov")]	
