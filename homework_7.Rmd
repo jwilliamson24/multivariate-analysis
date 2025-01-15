@@ -1,0 +1,118 @@
+---
+title: "homework_7"
+author: "Jasmine Williamson"
+date: "2024-11-11"
+output: pdf_document
+---
+
+## Homework 7
+
+Statistical Inference
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+  
+		library(vegan)
+		library(viridis)
+		library(MASSExtra)
+		library(ade4)
+    source("biostats.R")
+```
+
+```{r data, include=FALSE}
+
+#site-level data
+  dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+  row.names(dat) <- dat[,1]
+  
+  #dat2 <- subset(dat, year=="2024")
+  sals <- dat[26:27]
+  env <- dat[1:25]
+      
+  drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
+  env <- env[,!(colnames(env) %in% drop)]
+      
+  env_cont <- env[,-1]
+  
+  drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
+  env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+
+#standardize and transform
+  
+#env data
+  env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
+  env_subset_std <- decostand(env_subset, "standardize") #Z-scores the data in each column
+
+#standardizing salamanders by sampling area
+  sal_dens <- sals 
+  for(i in 1:nrow(sals)){	
+      sal_dens[i,] <- sals[i,]/567
+    }
+        
+#transforming and standardizing the data as needed
+  log_sal_cou <- log(sals + 1)
+  log_sal_dens <- log(sal_dens + .1)
+    		
+```
+
+
+### Question 1: Use the anosim function in R to run an ANOSIM on your response matrix, testing for among-group differences based on a categorical variable of your choice. If you do not have pre-determined categorical variables, you can generate them using a cluster analysis on an associated continuous predictor variable matrix. Provide a full statistical interpretation of your results.  
+
+```{r}
+trt_anosim <- anosim(env_std, dat$trt, permutations = 999, distance="euclidean")
+			summary(trt_anosim)
+			
+par(mfrow=c(1,2))
+		plot(trt_anosim)
+```
+This output shows that there is a significant difference in environmental variables between treatments (p=0.001), and that the effect size is moderate (R=0.449). The dissimilarity ranks tell us that BU sites are more similar to each other (median rank 1516), and HU sites have more variability among them (median rank 3192).  
+
+
+### Question 2: Now use the adonis2 function to run a PERMANOVA on the same response matrix and using the same categorical variable. What does the statistical output say about among-group differences?  
+
+```{r}
+trt_perm <- adonis2(env_std ~ dat$trt, permutations = 999, method = "euclidean")
+		trt_perm
+```
+This shows that treatment is responsible for 29% (R2=0.29022) of the variation in environmental conditions across sites, at a significance level of p=0.001. Treatment is a statistically significant predictor of variation. 
+
+
+### Question 3: Compare ANOSIM and PERMANOVA in terms of their assumptions, sensitivity to data structure, and when each method might be more appropriate for ecological data analysis. Which method do you feel is most appropriate for your data based on its structure and the study question(s) of interest?  
+
+ANOSIM uses rank differences, and assumes acorss-group dissimilarity is larger than within-group. It can be sensitive to large within-group variation. It is often more explanatory since it uses rank and cant give precise variance quantities.  
+
+PERMANOVA is flexible but assumes homogeneity of variance among groups, and is also sensitive to difference in within-group variance. It can be used to test differences in means of groups rather than using ranks.  
+
+I think PERMANOVA is more useful for me because I can compare treatment group means and get treatment effect size.  
+
+
+### Question 4: Run a SIMPER analysis on your dataset to identify the descriptors contributing the most to dissimilarity among two or more groups of your choice. What does this say about your ecological system?
+
+```{r}
+trt_simper <- simper(env_std, dat$trt)
+			summary(trt_simper)
+
+```
+A couple of interesting things that came out of this:  
+
+Harvest/Burn and Harvest/Unburned have minimal differences. This could be due to the fact that once trees are removed from the site, there isnt as much opportunity for the burn to leave a visible impact. 
+
+Harvest/Burn and Burn/Unharvested are significantly different, with humidity, temperature, and veg cover as contributors, suggesting that unharvested sites can buffer microclimate in a way that harvested sites cant.  
+
+Harvest/Burn and Control sites are statistically different with wood length and size contributing, which is good to see, knowing that they are very different on the ground.  
+
+Harvest/Burn and Burn/Salvage are slightly significantly different with decay class, fine woody debris, and elevation contributing. This is what I hypothesized, yay!  
+
+
+### Question 5: Discuss the rationale behind using permutation tests in multivariate data analysis. Why are these tests particularly useful in ecological studies, and what limitations should be considered when interpreting results?  
+
+Permutation tests are helpful in ecology because they dont make a lot of assumptions about normality, variance, or linearity, which is particularly necessary for often messy ecological data. Permutations also handle complex interactions and lots of zeros pretty well. Limitations include needing a large sample size to be powerful and being computationally intensive.
+
+
+
+
+

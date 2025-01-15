@@ -136,6 +136,14 @@
   		     xlab="Sites", 
   		     ylab="Bray-Curtis Dissimilarity", 
   		     hang=-1)
+  		
+  		
+  		salcl.ave2 <- hclust(sal.sor, method = "average")
+  		
+  		plot(salcl.ave2, main="Average Linkage Dendrogram (UPGMA)",
+  		     xlab="Sites", 
+  		     ylab="Bray-Curtis Dissimilarity", 
+  		     hang=-1)
 
 ### Weighted Average Linkage
 

@@ -1,0 +1,175 @@
+---
+title: "homework_6"
+author: "Jasmine Williamson"
+date: "2024-11-06"
+output: pdf_document
+---
+
+
+## Homework 6
+
+Constrained Ordination
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+  
+  library(vegan)
+	library(viridis)
+  library(ggplot2)
+  library(pastecs)
+  library(corrplot)
+  library(ggplot2)
+  library(ggpubr)
+  library(nomclust)
+  library(BioStatR)
+  library(MASSExtra)
+  library(ade4)
+  source("biostats.R")
+```
+
+```{r data, include=FALSE}
+
+#site-level data
+  dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+  row.names(dat) <- dat[,1]
+  
+  #dat2 <- subset(dat, year=="2024")
+  sals <- dat[26:27]
+  env <- dat[1:25]
+      
+  drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
+  env <- env[,!(colnames(env) %in% drop)]
+      
+  env_cont <- env[,-1]
+  
+  drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
+  env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+
+   
+#standardize and transform
+  
+#env data
+  env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
+  env_subset_std <- decostand(env_subset, "standardize") #Z-scores the data in each column
+
+#standardizing salamanders by sampling area
+  sal_dens <- sals 
+  for(i in 1:nrow(sals)){	
+      sal_dens[i,] <- sals[i,]/567
+    }
+        
+#transforming and standardizing the data as needed
+  log_sal_cou <- log(sals + 1)
+  log_sal_dens <- log(sal_dens + .1)
+    		
+```
+
+
+### Question 1: Constrained ordination is a type of ordination whereby the axes are constrained by environmental factors. For your dataset, which are the “response” variables and which are the “predictor” or “environmental” variables? Alternatively, do you think a symmetric analysis is more appropriate for your data (as opposed to an asymmetric or hypothesis-testing approach), and if so, why?
+
+The response variables are the salamander data, and the predictor variables are my environmental matrix, i.e. downed wood, etc. I think symmetric could be more useful for my data for exploring structure and relationships.
+
+### Question 2: Perform a Redundancy Analysis (RDA) on your dataset (you can use a simple, transformationbased,
+or distance-based approach, but justify your choice!). Interpret the results by discussing the relationship between the response and predictor variables. What percentage of variance in the response data is explained by the predictor variables? Provide R output and visualizations (e.g., RDA triplots) to support your analysis.
+
+I'm using tbRDA because it works well with data that has a lot of zeros.
+```{r}
+		sal.hel <- decostand(sals, "hellinger")
+
+		tbRDA <- rda(sal.hel ~ ., env_std)
+			summary(tbRDA)
+
+		anova(tbRDA, permutations = how(nperm = 999))
+		anova(tbRDA, by = "axis", permutations = how(nperm = 999))
+		anova(tbRDA, by = "terms", permutations = how(nperm = 999))
+	
+		RsquareAdj(tbRDA)
+		goodness(tbRDA)
+		vif.cca(tbRDA)
+		
+		groups <- levels(factor(env$trt))
+		pt_col <- viridis(length(groups))
+
+		site.sc <- summary(tbRDA)[2]
+		spe.sc <- summary(tbRDA)[1]
+		env.sc <- summary(tbRDA)[4]
+
+		plot(tbRDA, 
+			choices=c(1,2), 
+			type="n", 
+			scaling=2, 
+			main="tbRDA of Hellinger-transformed Sal Count",
+			xlab="RDA 1", 
+			ylab="RDA 2")	
+		for (i in 1:length(groups)){
+			dim_choice <- site.sc$sites[env$trt==groups[i],]
+			points(dim_choice[,1], dim_choice[,2], 
+			pch=19, 
+			cex=1.4, 
+			col=pt_col[i])
+			}
+		text(env.sc$biplot*2, 
+			row.names(env.sc$biplot), 
+			col="darkgray")
+		arrows(0, 0, env.sc$biplot[,1]*1.7, env.sc$biplot[,2]*1.7, 
+			lwd=2, 
+			length=0.1, 
+			col="darkgray")
+		text(spe.sc$species*2, 
+			row.names(spe.sc$species))
+		arrows(0, 0, spe.sc$species[,1]*1.5, spe.sc$species[,2]*1.5, 
+			lwd=2, 
+			length=0.1)
+		legend(x="bottomright", 
+			legend=groups, 
+			col=pt_col, 
+			pch=19)
+```
+The total constrained inertia from my predictors is about 20%, which isnt great. Of that, RDA1 accounts for about 91% and RDA2 accounts for about 8%. 
+
+
+### Question 3: Next, perform a Canonical Correspondence Analysis (CCA) on your dataset. Compare and contrast the results of the RDA with the CCA. Discuss the assumptions made in RDA and CCA and whether they are met by your dataset. How do the results differ in terms of species-environment (or other response-predictor) relationships?
+
+I cant get this to work with my data, as it doesnt want any zeros in the community data matrix.
+```{r}
+#CCA <- cca(sals ~ ., env_cont)
+			#summary(CCA)
+
+#Error in cca.default(d$X, d$Y, d$Z) : 
+#  all row sums must be >0 in the community data matrix	
+```
+
+
+### Question 4: Conduct a Co-inertia Analysis (CoIA), even if your “Y1” and “Y2” matrices are better suited for a directional hypothesis. How do the two datasets relate to one another? Use the RV coefficient to assess the strength of the shared structure between the datasets.
+
+```{r}
+    dudi.sal <- dudi.pca(sal.hel, scale=FALSE, scannf=FALSE)
+		dudi.env <- dudi.pca(env_cont, scale=TRUE, scannf = FALSE)
+
+		coia <- coinertia(dudi.sal, dudi.env, scannf = FALSE, nf=2)
+			summary(coia)
+		randtest(coia, nrepet = 999)
+
+  		plot(coia)
+```
+The total inertia is 0.11, which is pretty low, and means that the variance in the two datasets is not explained by their common structure. The RV is 0.08, which again is very low. This reinforces that there is not a strong relationship between the environmental variables and the salamander data. I dont know why and I dont like it.
+
+### Question 5: Based on the analyses you conducted (RDA, CCA, CoIA), summarize the main ecological insights gained from your data. What limitations did you encounter in your analysis and how might they affect your interpretations? Which method do you feel is most appropriate for your data and why?
+
+These all felt like a bit of a bust for my data. Not sure if its user error, but none of them reported notable relationships between the matrices, and I couldnt get the CCA to work at all. Maybe it just means that my environmental data actually doesnt have any strong relationships with my salamander data, which would probably mean I made mistakes in my study design somehow, because we know that environmental variables should be related to salamander occupancy and abundance.
+
+The tbRDA plot does associate OSS with soil moisture and downed wood cover, which tracks what we know about the species, and ENES with canopy cover, which means its occurring in our less disturbed sites.
+
+
+
+
+
+
+
+
+
+

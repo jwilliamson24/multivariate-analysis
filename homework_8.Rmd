@@ -1,0 +1,148 @@
+---
+title: "homework_8"
+output: pdf_document
+date: "2024-11-26"
+---
+
+## Homework 8
+
+CART and Random Forest
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+    setwd("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/multivariate-analysis")
+  
+		library(vegan)
+		library(rpart)
+		library(rpart.plot)
+		library(party)
+		library(randomForest)
+		library(ggplot2)
+    source("biostats.R")
+```
+
+```{r data, include=FALSE}
+
+#site-level data
+  #dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+  dat <- readRDS("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+  row.names(dat) <- dat[,1]
+  
+  #dat2 <- subset(dat, year=="2024")
+  sals <- dat[26:27]
+  env <- dat[1:25]
+      
+  drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
+  env <- env[,!(colnames(env) %in% drop)]
+      
+  env_cont <- env[,-1]
+  
+  drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
+  env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+    		
+```
+
+### Question 1: Using your dataset, create a classification or regression tree to predict a chosen response variable from a set of predictors. Then, build a Random Forest using the same data.  
+#### 1a. Use cross-validation to summarize the accuracy or MSE for each model.  
+
+Classification Tree  
+```{r}
+oss_PA <- ifelse(sals$oss > 0, "Present", "Absent")
+
+oss.tree <- rpart(oss_PA ~ ., data=env_cont, minsplit=2, xval=5)
+rpart.plot(oss.tree)
+
+plotcp(oss.tree)
+			
+oss.tree.prune <- prune(oss.tree, 0.044)
+rpart.plot(oss.tree.prune)
+```
+
+
+Random Forest  
+```{r}
+oss.forest <- randomForest(as.factor(oss_PA) ~ ., data=env_cont, ntree = 5000, mtry = 5, importance=TRUE, keep.forest=FALSE, na.action=na.omit)
+
+oss.forest  		
+```
+
+
+#### 1b. Examine the confusion matrix output. Explain how the Random Forest approach affects predictive accuracy compared to the single tree.  
+```{r}
+oss.forest
+table(oss_PA)
+```
+The error rate is pretty bad (35.43%), and most of that is due to the absences (62%). I tried tuning the mtry and ntree to improve the matrix but I havent figured out a way to make it better yet. RF generally improves accuracy compared to single tree because it averages over several trees. 
+
+
+#### 1c. Discuss any improvements you observe with Random Forests over single trees, and why this might be the case.  
+
+The confusion matrix shows better overall accuracy and lower error for "Present" compared to a single tree, though "Absent" still has higher misclassification. This suggests RF performs well with the majority class (present) but may need adjustments for imbalance.
+
+
+### Question 2: Using the Random Forest output from Question 1, evaluate the importance of individual predictors in the model.
+```{r}
+importance(oss.forest)
+```
+
+
+#### 2a. Report and visualize the predictor importance scores. What are the top predictors in each model?  
+```{r}
+varImpPlot(oss.forest)
+
+ForestData <- as.data.frame(importance(oss.forest))
+		ForestData <- ForestData[order(ForestData[,1]),]
+		ForestData$Var.Names <- row.names(ForestData)
+		colnames(ForestData) <- c("Absent","Present","MeanDec","IncNodePurity","Var.Names")
+		ForestData
+
+ggplot(ForestData, aes(x=Var.Names, y=MeanDec)) +
+  	geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=MeanDec), color="skyblue") +
+		geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
+		theme_light() +
+		coord_flip() +
+		theme(
+				legend.position="bottom",
+				panel.grid.major.y = element_blank(),
+				panel.border = element_blank(),
+				axis.ticks.y = element_blank()
+		)
+
+#updated plot:
+ggplot(ForestData, aes(x = Var.Names, y = MeanDec)) +
+  geom_segment(aes(x = Var.Names, xend = Var.Names, y = 0, yend = MeanDec, 
+                   color = ifelse(MeanDec > 18, "Above 18", 
+                                  ifelse(MeanDec >= 10, "10-18", "Below 10"))), 
+               show.legend = FALSE) +
+  geom_point(aes(size = IncNodePurity, 
+                 color = ifelse(MeanDec > 18, "Above 18", 
+                                ifelse(MeanDec >= 10, "10-18", "Below 10"))), 
+             alpha = 0.6) +
+  theme_light() +
+  coord_flip() +
+  scale_color_manual(values = c("Above 18" = "blue", "10-18" = "#66C2A5", "Below 10" = "#FFD700")) +
+  labs(color = "Range", size = "Node Purity") +
+  theme(
+    text = element_text(size = 14)
+  ) +
+  labs(
+    title = "Variable Importance from Random Forest Model",
+    x = "Environmental Variables",
+    y = "Mean Decrease in Accuracy",
+    size = "Node Purity"
+  )
+```
+The top predictors here are elevation, canopy cover, soil moisture, and logs. Elevation makes sense, because we know that they only exist in a certain elevational band, but I didn't expect it to be the most important driver because it isnt directly related to the disturbances we are investigating. Maybe I need to look at how the fires or harvest are spread across different elevations and see if there is an obvious spatial pattern. Canopy cover is an obvious one, and I'm happy to see soil moisture and logs on there because we hypothesized that those would be important. 
+
+
+#### 2b. Are the most important features in the Random Forest model the same as those in the single decision tree? Explain any differences.  
+
+Elevation, canopy cover, and soil moisture are also the top predictors for the classification tree, but logs dont show up.
+
+
+### Question 3: How does the ensemble nature of Random Forests affect model interpretation, and why might it present challenges or advantages for understanding predictor influence?  
+
+Random Forests combine multiple decision trees, making predictions based on the majority vote. They are more robust and accurate because of this, but they cant give us a straightforward decision tree or pinpoint specific relationships. This requires more thought and speculation about the top predictor variables.

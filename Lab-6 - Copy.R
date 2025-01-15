@@ -20,55 +20,49 @@
 		#-   Visualize PCA results using ordination biplots.
 		#-   Compare the effects of PCA on raw and transformed species data.
 
-## Setting up the R Workspace and Preparing the Data
-
-	#We will load the necessary packages and prepare the dataset as we have done previously. You know what to do!
-
-		library(vegan)
-		library(viridis)
-    setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
-    dat <- read.csv("Harney_Fishes_2007.csv", row.names = 1)
+#1) Loading packages and source code
+    
+    library(vegan)
+    library(viridis)
+    #setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+    setwd("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/multivariate-analysis")
     source("Biostats.R")
     
-  	#source("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\Biostats.R")
-    #dat <- read.csv("C:\\USGS_OCRU\\Teaching\\FW599_Multivariate_Statistics\\Data\\Harney_Fishes_2007.csv", row.names = 1)
+#2) Loading and subsetting site level data
+    
+    dat2 <- readRDS("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+    #dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+    row.names(dat2) <- dat2[,1]
+    
+    dat2 <- subset(dat2, year=="2024")
+    
+    sals <- dat2[,c("oss","enes")]
+    
+    drop <- c("lat","long","landowner","stand","tree_farm","year","weather","size_cl",
+              "length_cl","site_id","oss","enes")
+    env2 <- dat2[,!(colnames(dat2) %in% drop)]
+    
+    env_cont <- env2[, !colnames(env2) %in% "trt"]
+    
+    drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
+    env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+    
+    
+#3) Standardizing salamanders by sampling area
+    
+    sal_dens <- sals
+    for(i in 1:nrow(sals)){
+      sal_dens[i,] <- sals[i,]/567
+    }
+    
+    
+#4) Transforming and standardizing the data as needed
+    
+    log_sal_cou <- log(sals + 1)
+    # log_sal_dens <- log(sal_dens + 1)
+    
+    env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
 
-  	sub_dat <- subset(dat, SMU=="Malheur")
-
-	#We will once again subset the data to include only the Malheur sites since the entire dataset is too 
-		#large to effectively visualize.
-
-  		spp_N <- colSums(sub_dat[,16:ncol(sub_dat)])
-  		spp_0 <- subset(spp_N, spp_N == 0)
-  		omit <- names(spp_0)
-
-  		dat2 <- sub_dat[,!(colnames(sub_dat) %in% omit)]
-	
-  		dat3 <- dat2[rowSums(dat2[,16:ncol(dat2)]) >0, ]
-  
-  		dat3$Herbaceous[is.na(dat3$Herbaceous)] <- 0 
-  		dat3$Ann_Herb[is.na(dat3$Ann_Herb)] <- 0
-	
-  		dat3 <- dat3[complete.cases(dat3$SiteLength),]
-  
-  		dat_final <- dat3
-	
-  		fish <- dat_final[,16:ncol(dat_final)]
-  		env <- dat_final[,1:15]
-	
-  		fish_red <- drop.var(fish, min.fo=1)
-  
-  		fish_dens <- fish_red
-  		for(i in 1:nrow(fish_red)){	
-    			fish_dens[i,] <- fish_red[i,]/env$SiteLength[i]
-    			}
-  
-  		drop <- c("Latitude","Longitude","SiteLength","SiteWidth","SurfaceArea")
-  		env <- env[,!(colnames(env) %in% drop)]
-  		env_cont <- env[,!(colnames(env) %in% c("SMU","Pop","NLCD_Cat"))]
-  
-  		env <- env[,!(colnames(env) %in% c("Ave_Max_D","Ann_Herb"))]
-  		env_cont <- env_cont[,!(colnames(env_cont) %in% c("Ave_Max_D","Ann_Herb"))]
 
 ## Principal Component Analysis: Environmental Data
 
@@ -78,7 +72,7 @@
 		#standard deviation of one, ensuring that differences in scale do not unduly influence the analysis. 
 		#Note that we *do not* have to use the `decostand` function when `scale=TRUE`!
 
-  		env.pca <- prcomp(env_cont, scale=TRUE)	
+  		env.pca <- prcomp(env_subset, scale=TRUE)	
   		summary(env.pca)
 
 	#The summary output shows the proportion of variance explained by each principal component, as well as 
@@ -113,12 +107,12 @@
 		#"population" or other categorical variables. We will play around with this more next week.
 
   		site.sc <- scores(env.pca)
-  		groups <- levels(factor(dat_final$Pop))
+  		groups <- levels(factor(dat2$trt))
   		pt_col <- viridis(length(groups))
 
   		p <- ordiplot(env.pca, type="n", main="PCA of Malheur Environmental Data")
     		for (i in 1:length(groups)){
-      		dim_choice <- site.sc[dat_final$Pop==groups[i],]
+      		dim_choice <- site.sc[dat2$trt==groups[i],]
       		points(dim_choice[,1], dim_choice[,2], 
 				pch=19, 
 				cex=1.4, 
@@ -140,39 +134,39 @@
 	#Let's see what the raw fish density PCA yields first. The procedure runs as above, except we are NOT 
 		#standardizing our data using the `scale=TRUE` prompt.
 
-		fish.pca <- prcomp(fish_dens, scale=FALSE)	
-		summary(fish.pca)
+		sal.pca <- prcomp(sals, scale=FALSE)	
+		summary(sal.pca)
 
-		screeplot(fish.pca, bstick=TRUE, main="Broken Stick of PCs")
+		screeplot(sal.pca, bstick=TRUE, main="Broken Stick of PCs")
 
-  		pca.eigenvec(fish.pca, dim=6, digits=3, cutoff=0.1)
+  		pca.eigenvec(sal.pca, dim=6, digits=3, cutoff=0.1)
 
-		site.sc <- scores(fish.pca)
-		groups <- levels(factor(dat_final$Pop))
+		site.sc <- scores(sal.pca)
+		groups <- levels(factor(dat2$trt))
 		pt_col <- viridis(length(groups))
 
-		p <- ordiplot(fish.pca, type="n", main="PCA of Malheur Fish Data (Untransformed)")
+		p <- ordiplot(fish.pca, type="n", main="PCA of Sal Data (Untransformed)")
 			for (i in 1:length(groups)){
-				dim_choice <- site.sc[dat_final$Pop==groups[i],]
+				dim_choice <- site.sc[dat2$trt==groups[i],]
 				points(dim_choice[,1], dim_choice[,2], 
 					pch=19, 
 					cex=1.4, 
 					col=pt_col[i])
 					}
-			text(site.sc, rownames(fish), pos=4, cex=0.7)
+			text(site.sc, rownames(sals), pos=4, cex=0.7)
 			abline(v=0, lty="dotted", col="gray")
 			abline(h=0, lty="dotted", col="gray")
-			arrows(0, 0, fish.pca$rotation[,1]*0.8, fish.pca$rotation[,2]*0.8, lwd=2, length=0.1)
-			text(fish.pca$rotation[,1]*0.9, fish.pca$rotation[,2]*0.9, row.names(fish.pca$rotation))
+			arrows(0, 0, sal.pca$rotation[,1]*0.8, sal.pca$rotation[,2]*0.8, lwd=2, length=0.1)
+			text(sal.pca$rotation[,1]*0.9, sal.pca$rotation[,2]*0.9, row.names(sal.pca$rotation))
 
 	#How do we feel about this result? The first principal component, which is strongly influenced by 
 		#redband trout abundance, really seems to be explaining most of the variance.
 
 	#Now let's try it with the Hellinger transformation:
 
-  		fish_hel <- decostand(fish_dens, method="hellinger")
+  		sal_hel <- decostand(sal_dens, method="hellinger")
 
-		hel.pca <- prcomp(fish_hel, scale=FALSE)	
+		hel.pca <- prcomp(sal_hel, scale=FALSE)	
 		summary(hel.pca)
 
 		screeplot(hel.pca, bstick=TRUE, main="Broken Stick of PCs")
@@ -180,12 +174,12 @@
   		pca.eigenvec(hel.pca, dim=6, digits=3, cutoff=0.1)
 
 		site.sc <- scores(hel.pca)
-		groups <- levels(factor(dat_final$Pop))
+		groups <- levels(factor(dat2$trt))
 		pt_col <- viridis(length(groups))
 
-		p <- ordiplot(hel.pca, type="n", main="PCA of Malheur Fish Data (Hellinger)")
+		p <- ordiplot(hel.pca, type="n", main="PCA of Sal Data (Hellinger)")
 			for (i in 1:length(groups)){
-				dim_choice <- site.sc[dat_final$Pop==groups[i],]
+				dim_choice <- site.sc[dat2$trt==groups[i],]
 				points(dim_choice[,1], dim_choice[,2], 
 					pch=19, 
 					cex=1.4, 

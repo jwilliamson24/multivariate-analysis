@@ -173,7 +173,7 @@
   		100*fish.pcoa$eig/sum(fish.pcoa$eig)
 
 	#Look at the broken stick plot to see the percentage of variation explained by the first few principal 
-		#coordinates compared to what would be expected by chance (note that the `screeplot` function doesn't 
+		#coordinates compared to what would be expected by chance (note that the `screeplot` function doesn't       ##### how to interpret this plot
 		#work well with PCoA):
 
 		plot(100*fish.pcoa$eig/sum(fish.pcoa$eig),
@@ -189,7 +189,7 @@
 			col="red")
 
 	#A fun aspect of PCoA is that, even though the descriptors (species) are not implicit in the calculation 
-		#of principal coordinates, we can calculate their loadings as follows *and* use permuatation to ascribe 
+		#of principal coordinates, we can calculate their loadings as follows *and* use permuatation to ascribe   ##### how to interpret this code
 		#significance values to them!
 
 		spe.sc <- wascores(fish.pcoa$points[,1:2], fish_dens_log)

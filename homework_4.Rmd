@@ -18,7 +18,6 @@ knitr::opts_chunk$set(echo = TRUE)
   library(corrplot)
   library(ggplot2)
   library(ggpubr)
-  library(vegan)
   library(nomclust)
   library(BioStatR)
   library(RColorBrewer)
@@ -39,9 +38,9 @@ knitr::opts_chunk$set(echo = TRUE)
   dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
   row.names(dat) <- dat[,1]
   
-  dat2 <- subset(dat, year=="2024")
-  sals <- dat2[26:27]
-  env <- dat2[1:25]
+  #dat2 <- subset(dat, year=="2024")
+  sals <- dat[26:27]
+  env <- dat[1:25]
       
   drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
   env <- env[,!(colnames(env) %in% drop)]
@@ -69,6 +68,7 @@ Standardizing and Transforming the data.
   log_sal_cou <- log(sals + 1)
   log_sal_dens <- log(sal_dens + .1)
 ```
+
 ```{r sal plots, echo=FALSE}
   
   par(mfrow = c(2,2))
@@ -136,8 +136,8 @@ plot(sal.bray, sal.hel,
 
 Env data: Euclidean distance method
 ```{r env assoc}
-env.euc <- vegdist(env_std, metric="euclidean")
-env.euc.subs <- vegdist(env_subset_std, metric="euclidean")
+env.euc <- vegdist(env_std, method="euclidean")
+env.euc.subs <- vegdist(env_subset_std, method="euclidean")
 
 ```
 
@@ -148,13 +148,18 @@ non-statistical and statistical approaches.
 
 
 Single Linkage
-I have spent most of today working with this and I'm really struggling to get my data to work with any of these. Issues with the species data makes sense because I only have two specie,s but not sure why the env data isnt working. Even when I subsetted things and used a smaller number of sites and variables it looks like poo. Is it just because I have so many sites?
 ```{r single}
 sals.sin <- hclust(sal.hel, method = "single")
   		plot(sals.sin, main="Single Linkage Dendrogram",
   		     xlab="Sites", 
   		     ylab="Hellinger", 
   		     hang=-1)
+  		
+# sals.sin2 <- hclust(sal.jac, method = "single")
+#   		plot(sals.sin, main="Single Linkage Dendrogram",
+#   		     xlab="Sites", 
+#   		     ylab="Jaccard", 
+#   		     hang=-1)
 
 env.sin <- hclust(env.euc, method = "single")
   		plot(env.sin, main="Single Linkage Dendrogram",
@@ -163,7 +168,7 @@ env.sin <- hclust(env.euc, method = "single")
   		     hang=-1)
   		
 env.sin2 <- hclust(env.euc.subs, method = "single")
-  		plot(env.sin2, main="Single Linkage Dendrogram",
+  		plot(env.sin2, main="Single Linkage Dendrogram - subset",
   		     xlab="Sites", 
   		     ylab="Euclidean", 
   		     hang=-1)
@@ -183,6 +188,7 @@ env.com <- hclust(env.euc.subs, method = "complete")
   		     xlab="Sites", 
   		     ylab="Euclidean", 
   		     hang=-1)
+  		     rect.hclust(env.com, k=5)
 ```
 
 
@@ -199,6 +205,8 @@ env.ave <- hclust(env.euc.subs, method = "average")
   		     xlab="Sites", 
   		     ylab="Euclidean", 
   		     hang=-1)
+           rect.hclust(env.ave, k=5)
+
 ```
 
 
@@ -211,10 +219,12 @@ salcl.ward <- hclust(sal.hel, method = "ward.D2")
 			hang=-1)
 
 envcl.ward <- hclust(env.euc.subs, method = "ward.D2")
-  		plot(envcl.ward, main="Complete Linkage Dendrogram",
+  		plot(envcl.ward, main="Wards Linkage Dendrogram",
   		     xlab="Sites", 
   		     ylab="Euclidean", 
   		     hang=-1)
+  		  	 rect.hclust(envcl.ward, k=5)
+
 ```
 
 
@@ -290,10 +300,7 @@ site_num <- dat2$landowner
 ```
 
 
-Here OSS is associated with clusters 2, 3, 4
-			#2: no canopy, high dwd, med decay (no canopy means harvested so this is weird!)
-			#3: high canopy, med dwd,high decay
-			#4: no canopy, med decay, med dwdcov
+Here there are no species associations:
 ```{r indicator cluster, echo=FALSE}
 envcl.ward <- hclust(env.euc, method = "ward.D")
 
@@ -347,9 +354,9 @@ envcl.ward <- hclust(env.euc, method = "ward.D")
 				cex=1.5, 
 				col = rgb(red = 0, green = 0, blue = 1, alpha = 0.4))
 
-  		site_num <- ENV_CLUS
-  		ind_sp <- multipatt(log_sal_dens, site_num, func = "IndVal.g", control = how(nperm=999))
-			summary(ind_sp)
+site_num <- ENV_CLUS
+ind_sp <- multipatt(log_sal_dens, site_num, func = "IndVal.g", control = how(nperm=999))
+summary(ind_sp)
 
 ```
 

@@ -48,7 +48,9 @@
 
     
 	#2) Loading site level data
-    dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+    data_url <- "https://raw.githubusercontent.com/jwilliamson24/oss-occu/refs/heads/main/data/site_level_matrix.csv"
+    dat2 <- read.csv(data_url)
+    #dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
     row.names(dat2) <- dat2[,1]
     
     sals <- dat2[,c("oss","enes")]
@@ -145,7 +147,7 @@
 		#although it can be computed from raw data. This metric gives the same importance to absolute differences 
 		#in abundance, irrespective of their order of magnitude. That is, it weighs abundant and rare species similarly.
 
-		sal.bray <- vegdist(log_sal_cou, method="bray")
+		sal.bray <- vegdist(log_sal_dens, method="bray")
 
 	#The chord distance is a Euclidean distance computed on site (object) vectors that have been normalized to 
 		#length 1 (also referred to as the chord transformation). The log-chord distance is simply the chord 
@@ -192,7 +194,7 @@
 		#higher weights to rare than to common species. It is only recommended when rare species are considered 
 		#to be good indicators of special ecological conditions.
 
-	  sal.chi <- vegdist(log_sals, method="chi")
+	  sal.chi <- vegdist(log_sal_cou, method="chi")
 	  
 	  
 	#Retry these using the sal density data

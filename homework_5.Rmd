@@ -1,0 +1,448 @@
+---
+title: "homework_5"
+author: "Jasmine Williamson"
+date: "2024-10-28"
+output: pdf_document
+---
+
+## Homework 5
+
+Ordination
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+  
+  library(vegan)
+	library(viridis)
+  library(ggplot2)
+  library(pastecs)
+  library(corrplot)
+  library(ggplot2)
+  library(ggpubr)
+  library(nomclust)
+  library(BioStatR)
+  library(RColorBrewer)
+  library(gclus)
+	library(dplyr)
+	library(cluster)
+	library(indicspecies)
+  source("biostats.R")
+```
+
+```{r data, include=FALSE}
+
+#site-level data
+  dat <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+  row.names(dat) <- dat[,1]
+  
+  #dat2 <- subset(dat, year=="2024")
+  sals <- dat[26:27]
+  env <- dat[1:25]
+      
+  drop <- c("lat","long","stand","tree_farm","landowner","site_id","year","weather")
+  env <- env[,!(colnames(env) %in% drop)]
+      
+  env_cont <- env[,-1]
+  
+  drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
+  env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+
+   
+#standardize and transform
+  
+#env data
+  env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
+  env_subset_std <- decostand(env_subset, "standardize") #Z-scores the data in each column
+
+#standardizing salamanders by sampling area
+  sal_dens <- sals 
+  for(i in 1:nrow(sals)){	
+      sal_dens[i,] <- sals[i,]/567
+    }
+        
+#transforming and standardizing the data as needed
+  log_sal_cou <- log(sals + 1)
+  log_sal_dens <- log(sal_dens + .1)
+    		
+```
+
+### Question 1) Conduct a Principal Component Analysis (PCA), Correspondence Analysis (CA), Principal Coordinate Analysis (PCoA), and Nonmetric Multidimensional Scaling Analysis (NMDS) using your dataset.  
+
+### PCA - Environmental data  
+```{r env pca, echo=FALSE}
+env.pca <- prcomp(env_subset_std, scale=TRUE)	
+
+  screeplot(env.pca, bstick=TRUE, main="Broken Stick of PCs")
+  
+  pca.eigenvec(env.pca, dim=6, digits=3, cutoff=0.1)
+  
+  site.sc <- scores(env.pca)
+  groups <- levels(factor(dat2$trt))
+  pt_col <- viridis(length(groups))
+
+p <- ordiplot(env.pca, type="n", main="PCA of Environmental Data")
+    		for (i in 1:length(groups)){
+      		dim_choice <- site.sc[dat2$trt==groups[i],]
+      		points(dim_choice[,1], dim_choice[,2], 
+				pch=19, 
+				cex=1.4, 
+				col=pt_col[i])
+			}
+    			#text(site.sc, rownames(env_cont), pos=4, cex=0.7)
+    			abline(v=0, lty="dotted", col="gray")
+    			abline(h=0, lty="dotted", col="gray")
+    			arrows(0, 0, env.pca$rotation[,1]*3, env.pca$rotation[,2]*3, lwd=2, length=0.1)
+    			text(env.pca$rotation[,1]*3.1, env.pca$rotation[,2]*3.1, row.names(env.pca$rotation))
+
+```
+
+### PCA - Sal data  
+This looks absolutely absurd, I would assume its mainly because I only have two species.
+```{r sal pca, echo=FALSE}
+#untransformed sal count data
+sal.pca <- prcomp(sals, scale=FALSE)	
+
+  	pca.eigenvec(sal.pca, dim=6, digits=3, cutoff=0.1)
+
+		site.sc <- scores(sal.pca)
+		groups <- levels(factor(dat2$trt))
+		pt_col <- viridis(length(groups))
+
+p <- ordiplot(sal.pca, type="n", main="PCA of Sal Count Data (Untransformed)")
+			for (i in 1:length(groups)){
+				dim_choice <- site.sc[dat2$trt==groups[i],]
+				points(dim_choice[,1], dim_choice[,2], 
+					pch=19, 
+					cex=1.4, 
+					col=pt_col[i])
+					}
+			#text(site.sc, rownames(sals), pos=4, cex=0.7)
+			abline(v=0, lty="dotted", col="gray")
+			abline(h=0, lty="dotted", col="gray")
+			arrows(0, 0, sal.pca$rotation[,1]*0.8, sal.pca$rotation[,2]*0.8, lwd=2, length=0.1)
+			text(sal.pca$rotation[,1]*0.9, sal.pca$rotation[,2]*0.9, row.names(sal.pca$rotation))
+  		legend(x="bottomleft", 
+  			legend=levels(factor(dat2$trt)), 
+  			col=pt_col[1:6], 
+  			pch=19, 
+  			cex=1.2)
+  		
+#hellinger transformed sal density data			
+sal_hel <- decostand(sal_dens, method="hellinger")
+		hel.pca <- prcomp(sal_hel, scale=FALSE)	
+
+  	pca.eigenvec(hel.pca, dim=6, digits=3, cutoff=0.1)
+
+		site.sc <- scores(hel.pca)
+		groups <- levels(factor(dat2$trt))
+		pt_col <- viridis(length(groups))
+
+p <- ordiplot(hel.pca, type="n", main="PCA of Sal Density Data (Hellinger)")
+			for (i in 1:length(groups)){
+				dim_choice <- site.sc[dat2$trt==groups[i],]
+				points(dim_choice[,1], dim_choice[,2], 
+					pch=19, 
+					cex=1.4, 
+					col=pt_col[i])
+					}
+			#text(site.sc, rownames(sals), pos=4, cex=0.7)
+			abline(v=0, lty="dotted", col="gray")
+			abline(h=0, lty="dotted", col="gray")
+			arrows(0, 0, hel.pca$rotation[,1]*0.8, hel.pca$rotation[,2]*0.8, lwd=2, length=0.1)
+			text(hel.pca$rotation[,1]*0.9, hel.pca$rotation[,2]*0.9, row.names(hel.pca$rotation))			
+		  legend(x="bottomleft", 
+			  legend=levels(factor(dat2$trt)), 
+			  col=pt_col[1:6], 
+			  pch=19, 
+			  cex=1.2)
+		  
+#chi-square transformed sal density data			
+sal_chi <- vegdist(log_sal_cou, method="chi")
+		chi.pca <- prcomp(sal_chi, scale=FALSE)	
+
+  	pca.eigenvec(chi.pca, dim=6, digits=3, cutoff=0.1)
+
+		site.sc <- scores(chi.pca)
+		groups <- levels(factor(dat2$trt))
+		pt_col <- viridis(length(groups))
+
+p <- ordiplot(chi.pca, type="n", main="PCA of Sal Density Data (Chi)")
+			for (i in 1:length(groups)){
+				dim_choice <- site.sc[dat2$trt==groups[i],]
+				points(dim_choice[,1], dim_choice[,2], 
+					pch=19, 
+					cex=1.4, 
+					col=pt_col[i])
+					}
+			#text(site.sc, rownames(sals), pos=4, cex=0.7)
+			abline(v=0, lty="dotted", col="gray")
+			abline(h=0, lty="dotted", col="gray")
+			arrows(0, 0, chi.pca$rotation[,1]*0.8, chi.pca$rotation[,2]*0.8, lwd=2, length=0.1)
+			text(chi.pca$rotation[,1]*0.9, chi.pca$rotation[,2]*0.9, row.names(chi.pca$rotation))			
+		  legend(x="bottomleft", 
+			  legend=levels(factor(dat2$trt)), 
+			  col=pt_col[1:6], 
+			  pch=19, 
+			  cex=1.2)
+```
+
+### CA - Env data  
+```{r env ca, echo=FALSE}
+env.ca <- cca(env_cont)
+	summary(env.ca)
+  100*eigenvals(env.ca)/sum(eigenvals(env.ca))
+
+  screeplot(env.ca, bstick=TRUE, main="Inertia, CA vs. Random")
+
+par(mfrow=c(1,2))
+		plot(env.ca, 
+			scaling=1, 
+			main="Env CA, Scaling 1")
+		plot(env.ca, 
+			main="Env CA, Scaling 2")
+
+		groups <- levels(factor(dat2$trt))
+		pt_col <- viridis(length(groups))
+		site.sc <- scores(env.ca, choices=c(1,2))
+
+dev.off()
+p <- ordiplot(env.ca, 
+			type="n", 
+			main="Env CA",
+			xlab="Axis 1", 
+			ylab="Axis 2", 
+			xlim=c(-8,2))
+		for (i in 1:length(groups))
+			{
+			dim_choice <- site.sc$sites[dat2$trt==groups[i],]
+			points(dim_choice[,1], dim_choice[,2], 
+				pch=19, 
+				cex=1.4, 
+				col=pt_col[i])
+				}
+		text(site.sc$species*1.2, row.names(site.sc$species))
+		arrows(0, 0, site.sc$species[,1]*1.1, site.sc$species[,2]*1.1, 
+			lwd=2, 
+			length=0.1)
+		legend(x="bottomleft", 
+			legend=levels(factor(dat2$trt)), 
+			col=pt_col[1:6], 
+			pch=19, 
+			cex=1.2)
+
+```
+
+### CA - Sal data
+I believe this warning is happening because I have a lot of zeros in my salamander data, but I can't figure out what to do about that. I think this just isnt a great analysis for my data.
+```{r sal ca}
+#sal.ca <- cca(sals)
+#Error in cca.default(sals) : 
+#  all row sums must be >0 in the community data matrix
+```
+
+
+### PCoA - Env data
+```{r env pcoa}
+#create distance matrix from z-scored subset of env data
+		env_std_subset <- env_std[,c("temp","dwd_cov","soil_moist","stumps","logs","decay_cl","canopy_cov")]	
+		env_euc <- vegdist(env_std_subset, method="euclidean")
+		
+		env.pcoa <- cmdscale(env_euc, 
+		                     k=5, 
+		                     eig=TRUE, 
+		                     add=T)
+
+#broken stick
+		plot(100*env.pcoa$eig/sum(env.pcoa$eig),
+			type="b",
+			lwd=2,
+			col="blue",
+			xlab="Principal Component from PCoA",
+			ylab="Percent variation explained",
+			main="Broken Stick Model")
+		lines(bstick(length(env.pcoa$eig))*100, 
+			type="b", 
+			lwd=2, 
+			col="red")
+
+		spe.sc <- wascores(env.pcoa$points[,1:2], env_subset)
+
+		vec.sp <- envfit(as.data.frame(env.pcoa$points), env_subset, perm=1000)
+
+#plot pcoa (ordiplot alternative)
+		groups <- levels(factor(dat2$trt))
+		pt_col <- viridis(length(groups))
+		site.sc <- scores(env.pcoa, choices=c(1,2))
+
+plot(site.sc[, 1:2],  # First two dimensions
+		     main = "Env PCoA", 
+		     xlab = "PCoA 1", 
+		     ylab = "PCoA 2", 
+		     pch = 19)
+		for (i in 1:length(groups))
+			{
+			dim_choice <- site.sc[dat2$trt==groups[i],]
+			points(dim_choice[,1], dim_choice[,2], 
+				pch=19, 
+				cex=1.4, 
+				col=pt_col[i])
+			}
+		text(spe.sc*1.5, row.names(spe.sc))
+		arrows(0, 0, spe.sc[,1]*1.4, spe.sc[,2]*1.4, 
+			lwd=2, 
+			length=0.1)
+		legend(x="bottomleft", 
+			legend=levels(factor(dat2$trt)), 
+			col=pt_col[1:6], 
+			pch=19, 
+			cex=1.2)
+
+# Fit environmental variables to PCoA space for interpretation
+envfit_results <- envfit(env.pcoa, env_std_subset) 
+print(envfit_results)
+
+
+```
+
+
+### PCOA - Sal data
+Again, I dont think this is useful for my data since I have a lot of zeros.
+```{r sal pcoa}
+sal.bray <- vegdist(log_sal_dens, "bray")
+sal.pcoa <- cmdscale(sal.bray, 
+			k=5, 
+			eig=TRUE, 
+			add=T)
+```
+
+
+### NMDS - Env data only
+```{r nmds, echo=FALSE}
+nmds2 <- metaMDS(env_std_subset, 
+			distance="euclidean", 
+			k=2, 
+			autotransform=FALSE, 
+			trymax=100)
+
+nmds3 <- metaMDS(env_std_subset, 
+			distance="euclidean", 
+			k=3, 
+			autotransform=FALSE, 
+			trymax=100)
+
+    nmds.scree(env_std_subset, 
+			distance="euclidean",
+			k=10, 
+			autotransform=FALSE,
+			trymax=50)
+
+		stressplot(nmds2, main="Shepard Plot")
+	
+		stressplot(nmds3, main="Shepard Plot")
+		
+    vec.sp <- envfit(as.data.frame(nmds2$points), env_std_subset, perm=1000)
+
+    
+    groups <- levels(factor(dat2$trt))
+		pt_col <- viridis(length(groups))
+		site.sc <- scores(nmds2, choices=c(1,2))
+
+		env_fit <- envfit(nmds2, env_std_subset, permutations = 999)  # env_std_subset is your z-scored environmental data
+		print(envfit_results)
+		
+p <- ordiplot(nmds2, 
+			type="n", 
+			main="NMDS2",
+			xlab="Axis 1", 
+			ylab="Axis 2")
+		for (i in 1:length(groups))
+			{
+			dim_choice <- site.sc[dat2$trt==groups[i],]
+			points(dim_choice[,1], dim_choice[,2], 
+				pch=19, 
+				cex=1.4, 
+				col=pt_col[i])
+		}
+		plot(env_fit, p.max = 0.05, col = "red", lwd = 1.5)  # Use p.max to only show significant arrows, if desired
+		legend(x="topright", 
+			legend=levels(factor(dat2$trt)), 
+			col=pt_col[1:6], 
+			pch=19, 
+			cex=1.2)
+
+```
+
+
+### 1a. Were you able to successfuly apply each of these analyses to your dataset? If not, explain why.  
+
+Most of these worked with my environmental data, but I dont think I can do species ordinations. I have many zeros, and only two species.
+
+
+### 1b. Which transformation or standardization procedures, if any, did you use prior to each analysis?  
+
+PCA: z-scored environmental data, hellinger salamander data  
+CA: raw environmental data   
+PCoA: euclidean distance matrix from z-scored subset of env data  
+NMDS: z-scored environmental data  
+
+
+### 1c. Did you remove any outliers prior to running the ordination procedure? Are there any apparent
+outliers in the biplot(s) that appear to warrant further examination?  
+
+No, I dont think so.  
+
+
+### 1d. Which ordination procedure is the most appropriate for your dataset? Defend your answer based on what you know about the strengths and limitations of each procedure.  
+
+I think the PCoA is the best option. None of them are showing very clear clusters, but this one does show a grouping of 
+the control sites aside from the rest.  
+
+Since euclidean distance is appropriate for my data, I wouldve expected PCA to be more helpful. I alsoexpected the PCoA using euclidean distance to be similar to the PCA, but it was not.
+
+
+### 1e. How does the choice of ordination method influence the interpretation of your data?  
+
+Different ordination methods can give varying interpretations of your data and need to match your data structure. They can focus on different aspects of the data- for example, CA is more sensitive to rare species. Choosing one that shows absolute (PCA, CA) or relative (NMDS) distances impacts your interpretation as well.
+
+
+### Question 2) For the PCA, PCoA, and/or CA, interpret the meaning of the principal components in the context of your dataset. What do the first few principal components explain about the variation in your data? How do these components relate to the original variables? Are there any variables that are strongly correlated with the principal components?  
+
+My PCoA plot of environmental data shows a high loading of canopy cover on axis 1, which may explain the grouping of UU (control) plots on the left side of the plot because they are all unlogged. Im having a harder time understanding the results because apparently every variable is showing as having a significant relationship with each vector. Downed wood is strongly correlated with axis 2, but it doesnt look that way on the plot, so that's odd. Still some workshopping to do.
+
+
+### Question 3) Do a little digging and find at least one creative way of presenting your ordination output that we did not discuss in lab or in class. How does this approach allow you to interpret your data more effectively?
+
+Struggling to make a plot that shows a gradient of downed wood density, so that's in the works. Here's one that shows salamander count by point size. It is interesting to see that the sites in the top right have lower counts than on the left side of the plot.
+```{r}
+oss_scale <- 1 + log(dat2$oss + 1)
+plot(site.sc[, 1:2],  # First two dimensions
+     main = "Env PCoA, points sized to OSS count", 
+     xlab = "PCoA 1", 
+     ylab = "PCoA 2", 
+     pch = 19)
+for (i in 1:length(groups))
+{
+    dim_choice <- site.sc[dat2$trt==groups[i],]
+    
+}
+text(spe.sc*1.5, row.names(spe.sc))
+points(site.sc, 
+       pch=20, 
+       cex=oss_scale, 
+       col="purple")
+arrows(0, 0, spe.sc[,1]*1.4, spe.sc[,2]*1.4, 
+       lwd=2, 
+       length=0.1)
+```
+
+
+
+
+
+
+
+
