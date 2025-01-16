@@ -13,14 +13,9 @@
     rm(list=ls())
     setwd("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/multivariate-analysis")
 
-    library(vegan)
-    library(rpart)
-    library(rpart.plot)
-    library(party)
     library(randomForest)
     library(ggplot2)
-    source("biostats.R")
-
+ 
 ## load data--------------------------------------------------------------------------------------------------
 
 # site-level data
@@ -52,8 +47,7 @@
     table(oss_PA)
     importance(oss.forest)
     # The error rate is pretty bad (29.92%), and most of that is due to the absences (62%). I tried tuning the mtry 
-    # and ntree to improve the matrix but I havent figured out a way to make it better yet. RF generally improves 
-    # accuracy compared to single tree because it averages over several trees.  
+    # and ntree to improve the matrix but I havent figured out a way to make it better yet. 
     
 #subset of variables
     oss.forest.sub <- randomForest(as.factor(oss_PA) ~ ., data=env_subset, ntree = 5000, mtry = 5, 
@@ -93,7 +87,11 @@
         y = "Mean Decrease in Accuracy",
         size = "Node Purity"
       )
-  
+ 
+ggsave(filename = "oss_varimp.png", plot = p, device = "png",
+       path = )
+
+
 ## subset variables plot --------------------------------------------------------------------------------------------------------
     
     ossForestData.sub <- as.data.frame(importance(oss.forest.sub))
