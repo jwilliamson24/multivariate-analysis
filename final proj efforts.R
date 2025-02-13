@@ -1,6 +1,10 @@
+#
 # Multivariate final project code
+# fall 2024
 # a little messy, trying different things
+#
 
+rm(list=ls())
 setwd("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/multivariate-analysis")
 
 library(vegan)
@@ -28,9 +32,10 @@ env_cont <- env[,-1]
 
 drop <- c("jul_date","veg_cov","fwd_cov","dwd_count","size_cl","decay_cl","char_cl","length_cl" )
 env_subset <- env_cont[,!(colnames(env_cont) %in% drop)]
+
 env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
 
-### classification tree
+### classification tree -------------------------------------------------------------------------
 
     # OSS presence/absence
     oss_PA <- ifelse(sals$oss > 0, "Present", "Absent")
@@ -51,7 +56,7 @@ env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
     rpart.plot(oss.tree.prune2, cex=1.3)
 
 
-### random forest
+### random forest -------------------------------------------------------------------------
 
     oss.forest <- randomForest(as.factor(oss_PA) ~ ., data=env_cont, ntree = 5000, mtry = 5, 
                                importance=TRUE, keep.forest=FALSE, na.action=na.omit)
@@ -141,7 +146,7 @@ env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
 
 
 
-### treatment classification efforts
+### treatment classification efforts -------------------------------------------------------------------------
 
 ### tbRDA
     # these might be messy, original code in homework 6 rmd
@@ -230,7 +235,7 @@ env_std <- decostand(env_cont, "standardize") #Z-scores the data in each column
            pch=19)
 
 
-### PCoA
+### PCoA -------------------------------------------------------------------------
 # original code in lab 7 copy 
 
     env_std_subset <- env_std[,c("temp","dwd_cov","soil_moist","stumps","logs","decay_cl","canopy_cov")]	

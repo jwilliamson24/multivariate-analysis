@@ -25,12 +25,12 @@
     
     library(vegan)
     library(viridis)
-    setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
-    source("Biostats.R")
+    setwd("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/oss-occu/data")
+    source("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis/Biostats.R")
     
 #2) Loading and subsetting site level data
     
-    dat2 <- readRDS("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
+    dat2 <- readRDS("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/oss-occu/data/site_level_matrix.rds")
     row.names(dat2) <- dat2[,1]
     
     dat2 <- subset(dat2, year=="2024")

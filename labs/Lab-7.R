@@ -28,7 +28,7 @@
 		library(vegan)
 		library(viridis)
 
-    setwd("C:/Users/jasmi/OneDrive/Documents/Academic/OSU/Git/multivariate-analysis")
+    setwd("~/Library/CloudStorage/OneDrive-Personal/Documents/Academic/OSU/Git/multivariate-analysis")
     source("Biostats.R")
     source("coldiss.R")
     
